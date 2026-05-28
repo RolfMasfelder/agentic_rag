@@ -324,3 +324,4 @@ Ein lokales Wissens- und Analysesystem mit:
 
 Das LLM dient dabei als Analyse- und Orchestrierungskomponente.
 
+hier geht es später weiter
