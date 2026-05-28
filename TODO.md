@@ -6,39 +6,39 @@ Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-28.
 
 ## 1. Parser & Dokumentverarbeitung
 
-- [ ] **XML/XSD-Parser** – `FileType.XML` vorhanden, Parser fehlt
-- [ ] **OpenAPI-Parser** – `FileType.OPENAPI` vorhanden, Parser fehlt
-- [ ] **Code-Parser** – `FileType.CODE` vorhanden, Parser fehlt (Klassen/Funktionen extrahieren)
-- [ ] **Plain-Text-Parser** – `FileType.TEXT` vorhanden, Parser fehlt
-- [ ] **OCR-Integration** – PaddleOCR oder Tesseract für gescannte PDFs (in `Zusammenfassung.txt` erwähnt)
+- [x] **XML/XSD-Parser** – `ingestion/parsers/xml_parser.py`; jedes Kind-Element wird ein `xml_block`-Chunk
+- [x] **OpenAPI-Parser** – `ingestion/parsers/openapi.py`; pro Operation + Schema-Objekt je ein Chunk
+- [x] **Code-Parser** – `ingestion/parsers/code.py`; Python via `ast` (Klassen/Funktionen); andere Sprachen als Absätze
+- [x] **Plain-Text-Parser** – `ingestion/parsers/text.py`; Leerzeilen als Absatz-Trenner
+- [x] **OCR-Integration** – Tesseract-Fallback in `PDFParser` (pytesseract + Pillow); greift bei < 20 Zeichen selektierbarem Text pro Seite
 
 ## 2. Chunking
 
-- [ ] **XML-bewusstes Chunking** – `chunk_type=xml_block` deklariert, aber nie erzeugt
-- [ ] **Code-bewusstes Chunking** – `chunk_type=function/class` deklariert, Extraktion fehlt
-- [ ] **Klausel-Extraktion** – `chunk_type=clause` für Verträge deklariert, nicht implementiert
+- [x] **XML-bewusstes Chunking** – `XMLParser` erzeugt `xml_block`-Chunks; `ParagraphChunker` lässt sie unverändert durch
+- [x] **Code-bewusstes Chunking** – `CodeParser` erzeugt `function`/`class`-Chunks; `ParagraphChunker` lässt sie unverändert durch
+- [x] **Klausel-Extraktion** – `ClauseChunker` (`chunkers/clause.py`) erkennt nummerierte Klauseln, §-Marker, Article/Section-Header; aktivierbar via `document.metadata["chunker"] = "clause"`
 
 ## 3. REST-API – fehlende Endpunkte
 
-- [ ] **Agent-Endpunkt** – `POST /api/agent/query/` ruft `run_agent()` auf und gibt Antwort + Quellen zurück
-- [ ] **Such-Endpunkt** – `GET /api/search/` (hybrid, vector, fulltext, metadata) als REST-Endpoint
-- [ ] **Analyse-Endpunkt** – CRUD für `AnalysisResult` (Modell vorhanden, keine Views)
-- [ ] **Relation-Erstellung** – `DocumentRelation` kann nur gelesen, nicht per API erstellt werden
-- [ ] **Batch-Import** – Mehrere Dokumente in einem Request hochladen und verarbeiten
+- [x] **Agent-Endpunkt** – `POST /api/agent/query/` → `run_agent()`, gibt `answer`, `iterations`, `sources` zurück
+- [x] **Such-Endpunkt** – `GET /api/search/?q=...&mode=hybrid|vector|fulltext|metadata` in `retrieval/views.py`
+- [x] **Analyse-Endpunkt** – `AnalysisResultViewSet` CRUD unter `/api/documents/analysis/`
+- [x] **Relation-Erstellung** – `DocumentRelationViewSet` unter `/api/documents/relations/` (GET/POST/DELETE)
+- [x] **Batch-Import** – `POST /api/documents/batch_import/` (Mehrere Dateien, Duplikat-Erkennung, 207 bei Teilfehlern)
 
 ## 4. Retrieval
 
-- [ ] **Graph-Traversal** – Mehrstufige Beziehungssuche (Dokument → Relationen → Relationen)
-- [ ] **Dokument-Ähnlichkeit** – Semantische Ähnlichkeit auf Dokumentebene (nicht nur Chunks)
-- [ ] **Re-Ranking** – Ergebnisse nach einem zweiten Schritt neu sortieren (z. B. Cross-Encoder)
-- [ ] **Query-Expansion** – Synonyme / verwandte Begriffe automatisch ergänzen
+- [x] **Graph-Traversal** – `retrieval/graph.py`; BFS über `DocumentRelation` (beide Richtungen), bis `max_depth` Hops; als Agent-Tool `graph_traversal` registriert
+- [x] **Dokument-Ähnlichkeit** – `retrieval/document_similarity.py`; Durchschnitt aller Chunk-Embeddings → Dokument-Vektor → pgvector-Suche; als Agent-Tool `find_similar_documents` registriert
+- [x] **Re-Ranking** – `retrieval/reranker.py`; LLM bewertet jeden Treffer 0–10, sortiert neu; nutzt vorhandenen Ollama-Client, kein Cross-Encoder nötig
+- [x] **Query-Expansion** – `retrieval/query_expansion.py`; LLM ergänzt Synonyme/Fachbegriffe; optional per `expand=True` in `search_documents`-Tool nutzbar
 
-## 5. Agentische Architektur
+## 5. Agentische Architektur ✅
 
-- [ ] **Tool-Schema-Validierung** – Parameter-Validierung vor Ausführung (aktuell: direktes JSON-Parsing ohne Schema)
-- [ ] **Context-Window-Management** – Gesprächsverlauf kürzen wenn Tokenlimit überschritten wird
-- [ ] **Iterativer Retrieval-Plan** – Agent soll Suchschritte explizit planen statt nur zu loopen
-- [ ] **Agent-Task via Celery** – Lang laufende Agent-Anfragen asynchron ausführen (in `Zusammenfassung.txt` erwähnt)
+- [x] **Tool-Schema-Validierung** – Parameter-Validierung vor Ausführung (`agents/schema.py`)
+- [x] **Context-Window-Management** – Gesprächsverlauf kürzen wenn Tokenlimit überschritten wird (`agents/context.py`)
+- [x] **Iterativer Retrieval-Plan** – Agent plant Suchschritte explizit (PLAN:-Phase im Orchestrator)
+- [x] **Agent-Task via Celery** – Asynchrone Agent-Ausführung über `apps/agent/` + `agents/tasks.py`
 
 ## 6. LLM-Client
 

@@ -4,7 +4,7 @@ Lokales KI-gestütztes Analyse- und Retrieval-System für strukturierte und unst
 
 Das System ist **kein** einfacher "Chat mit PDFs", sondern ein erweiterbares Wissens- und Analysesystem, das semantische Suche, Dokumentbeziehungen und iteratives agentisches Retrieval kombiniert – vollständig On-Prem, ohne Cloud-Abhängigkeiten.
 
-> Die vollständige Projektbeschreibung, Architekturprinzipien und Designentscheidungen sind in [Zusammenfassung.txt](Zusammenfassung.txt) dokumentiert.
+> Die vollständige Projektbeschreibung, Architekturprinzipien und Designentscheidungen sind in [docs/Zusammenfassung.txt](docs/Zusammenfassung.txt) dokumentiert.
 
 ---
 
@@ -25,63 +25,71 @@ Das System ist **kein** einfacher "Chat mit PDFs", sondern ein erweiterbares Wis
 ```
 agentic_rag/
 │
-├── Dockerfile                         # Python 3.13-slim, läuft als UID 1234:1234
-├── docker-compose.yml                 # db, redis, ollama, web, worker
+├── docker/
+│   ├── Dockerfile                         # Python 3.13-slim, läuft als UID 1234:1234
+│   └── docker-compose.yml                 # db, redis, web, worker
+├── docs/
+│   └── Zusammenfassung.txt                # Projektbeschreibung und Architektur
+├── scripts/                               # Hilfsskripte (z. B. download_testdata.py)
+├── data/                                  # Testdaten, nicht versioniert
 ├── requirements.txt
-├── manage.py
-├── .env.example                       # Vorlage für .env
-├── Zusammenfassung.txt                # Projektbeschreibung und Architektur
+├── requirements-dev.txt
+├── pyproject.toml                         # Ruff- und pytest-Konfiguration
+├── .env.example                           # Vorlage für .env
 │
-├── config/                            # Django-Projektkonfiguration
-│   ├── celery.py                      # Celery-App-Initialisierung
-│   ├── urls.py                        # Root-URL-Konfiguration
-│   ├── wsgi.py
-│   ├── asgi.py
-│   └── settings/
-│       ├── base.py                    # Gemeinsame Einstellungen
-│       ├── dev.py                     # Entwicklungsumgebung
-│       └── prod.py                    # Produktionsumgebung
-│
-├── apps/                              # Django-Applikationen
-│   ├── users/                         # Benutzerverwaltung
-│   │   ├── models.py                  # Erweiterter User (Rollen: admin/analyst/viewer)
-│   │   └── admin.py
-│   ├── documents/                     # Kernfachlogik
-│   │   ├── models.py                  # Document, Chunk, DocumentRelation, AnalysisResult
-│   │   ├── serializers.py             # DRF-Serializer
-│   │   ├── views.py                   # ViewSet inkl. /process- und /relations-Endpoints
-│   │   ├── urls.py
-│   │   ├── admin.py
-│   │   └── migrations/
-│   │       └── 0001_enable_pgvector.py  # CREATE EXTENSION vector
-│   └── audit/                         # Audit-Logging
-│       ├── models.py                  # AuditLog
-│       └── middleware.py              # Schreibt alle POST/PUT/PATCH/DELETE-Requests
-│
-├── ingestion/                         # Dokumentverarbeitungs-Pipeline
-│   ├── parsers/
-│   │   ├── base.py                    # Abstrakte Basisklasse + ParsedDocument/Chunk
-│   │   ├── pdf.py                     # PyMuPDF-Parser
-│   │   └── markdown.py                # Abschnittsbasierter Markdown-Parser
-│   ├── chunkers/
-│   │   ├── base.py                    # Abstrakte Basisklasse
-│   │   └── paragraph.py               # ParagraphChunker mit konfigurierbarem Overlap
-│   └── tasks.py                       # Celery-Tasks: parse → chunk → embed
-│
-├── retrieval/                         # Hybrid-Retrieval-Engine
-│   ├── vector_search.py               # pgvector CosineDistance
-│   ├── fulltext_search.py             # PostgreSQL Full-Text Search (Deutsch)
-│   ├── metadata_filter.py             # JSON-Metadaten-Filter
-│   └── hybrid.py                      # Gewichtete Score-Fusion (Vektor + Volltext)
-│
-├── agents/                            # Agentische Orchestrierung
-│   ├── orchestrator.py                # Tool-Calling-Loop (TOOL: / ANSWER:-Protokoll)
-│   └── tools/
-│       ├── search.py                  # search_documents, search_similar_chunks, search_by_metadata
-│       └── documents.py               # load_document, find_related_documents, summarize_document
-│
-└── llm/
-    └── client.py                      # Ollama-Client: get_embedding(), chat()
+└── django_root/                           # Gesamter Django-Code (PYTHONPATH-Wurzel)
+    ├── manage.py
+    │
+    ├── config/                            # Django-Projektkonfiguration
+    │   ├── celery.py                      # Celery-App-Initialisierung
+    │   ├── urls.py                        # Root-URL-Konfiguration
+    │   ├── wsgi.py
+    │   ├── asgi.py
+    │   └── settings/
+    │       ├── base.py                    # Gemeinsame Einstellungen
+    │       ├── dev.py                     # Entwicklungsumgebung
+    │       └── prod.py                    # Produktionsumgebung
+    │
+    ├── apps/                              # Django-Applikationen
+    │   ├── users/                         # Benutzerverwaltung
+    │   │   ├── models.py                  # Erweiterter User (Rollen: admin/analyst/viewer)
+    │   │   └── admin.py
+    │   ├── documents/                     # Kernfachlogik
+    │   │   ├── models.py                  # Document, Chunk, DocumentRelation, AnalysisResult
+    │   │   ├── serializers.py             # DRF-Serializer
+    │   │   ├── views.py                   # ViewSet inkl. /process- und /relations-Endpoints
+    │   │   ├── urls.py
+    │   │   ├── admin.py
+    │   │   └── migrations/
+    │   │       └── 0001_enable_pgvector.py  # CREATE EXTENSION vector
+    │   └── audit/                         # Audit-Logging
+    │       ├── models.py                  # AuditLog
+    │       └── middleware.py              # Schreibt alle POST/PUT/PATCH/DELETE-Requests
+    │
+    ├── ingestion/                         # Dokumentverarbeitungs-Pipeline
+    │   ├── parsers/
+    │   │   ├── base.py                    # Abstrakte Basisklasse + ParsedDocument/Chunk
+    │   │   ├── pdf.py                     # PyMuPDF-Parser
+    │   │   └── markdown.py                # Abschnittsbasierter Markdown-Parser
+    │   ├── chunkers/
+    │   │   ├── base.py                    # Abstrakte Basisklasse
+    │   │   └── paragraph.py               # ParagraphChunker mit konfigurierbarem Overlap
+    │   └── tasks.py                       # Celery-Tasks: parse → chunk → embed
+    │
+    ├── retrieval/                         # Hybrid-Retrieval-Engine
+    │   ├── vector_search.py               # pgvector CosineDistance
+    │   ├── fulltext_search.py             # PostgreSQL Full-Text Search (Deutsch)
+    │   ├── metadata_filter.py             # JSON-Metadaten-Filter
+    │   └── hybrid.py                      # Gewichtete Score-Fusion (Vektor + Volltext)
+    │
+    ├── agents/                            # Agentische Orchestrierung
+    │   ├── orchestrator.py                # Tool-Calling-Loop (TOOL: / ANSWER:-Protokoll)
+    │   └── tools/
+    │       ├── search.py                  # search_documents, search_similar_chunks, search_by_metadata
+    │       └── documents.py               # load_document, find_related_documents, summarize_document
+    │
+    └── llm/
+        └── client.py                      # Ollama-Client: get_embedding(), chat()
 ```
 
 ---
@@ -98,38 +106,28 @@ cp .env.example .env
 ### 2. Container bauen und starten
 
 ```bash
-docker compose build
-docker compose up -d db redis ollama
+docker compose -f docker/docker-compose.yml --env-file .env build
+docker compose -f docker/docker-compose.yml --env-file .env up -d db redis
 ```
 
-### 3. LLM-Modelle laden
+### 3. Datenbank initialisieren
 
 ```bash
-# Embedding-Modell
-docker compose exec ollama ollama pull nomic-embed-text
-
-# Chat-Modell
-docker compose exec ollama ollama pull qwen2.5:7b
+docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py migrate
+docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py createsuperuser
 ```
 
-### 4. Datenbank initialisieren
+### 4. System starten
 
 ```bash
-docker compose run --rm web python manage.py makemigrations
-docker compose run --rm web python manage.py migrate
-docker compose run --rm web python manage.py createsuperuser
-```
-
-### 5. System starten
-
-```bash
-docker compose up
+docker compose -f docker/docker-compose.yml --env-file .env up
 ```
 
 Erreichbar unter:
 - Django-Backend: http://localhost:8000
 - Django-Admin: http://localhost:8000/admin
-- Ollama-API: http://localhost:11434
+
+> **Hinweis:** Ollama läuft auf einem separaten Rechner. `OLLAMA_BASE_URL` in `.env` entsprechend setzen.
 
 ---
 
@@ -141,4 +139,4 @@ Erreichbar unter:
 - **Hybrid Retrieval**: Vektorsimilarität + PostgreSQL-Volltext + Metadatenfilter + relationale Traversal
 - **Vollständig On-Prem** – keine externen API-Aufrufe
 
-Siehe [Zusammenfassung.txt](Zusammenfassung.txt) für die vollständige Spezifikation.
+Siehe [docs/Zusammenfassung.txt](docs/Zusammenfassung.txt) für die vollständige Spezifikation.

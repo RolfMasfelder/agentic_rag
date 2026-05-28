@@ -82,3 +82,21 @@ def summarize_document(document_id: int) -> str:
         content={"text": summary},
     )
     return summary
+
+
+def graph_traversal(
+    document_id: int,
+    max_depth: int = 2,
+    relation_types: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Traverse the document relation graph (BFS) up to max_depth hops."""
+    from retrieval.graph import graph_traversal as _graph_traversal
+
+    return _graph_traversal(document_id, max_depth=max_depth, relation_types=relation_types)
+
+
+def find_similar_documents(document_id: int, limit: int = 5) -> list[dict[str, Any]]:
+    """Find documents semantically similar to the given document."""
+    from retrieval.document_similarity import find_similar_documents as _find_similar
+
+    return _find_similar(document_id, limit=limit)
