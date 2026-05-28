@@ -323,5 +323,3 @@ Ein lokales Wissens- und Analysesystem mit:
 * kontrolliertem Datenzugriff
 
 Das LLM dient dabei als Analyse- und Orchestrierungskomponente.
-
-hier geht es später weiter
