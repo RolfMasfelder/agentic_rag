@@ -14,22 +14,22 @@ def process_document(self, document_id: int) -> None:
     try:
         document = Document.objects.get(pk=document_id)
         document.status = Document.Status.PROCESSING
-        document.save(update_fields=['status'])
+        document.save(update_fields=["status"])
 
         _parse_and_chunk(document)
         _generate_embeddings(document)
 
         document.status = Document.Status.READY
-        document.save(update_fields=['status'])
-        logger.info('Document %d processed successfully.', document_id)
+        document.save(update_fields=["status"])
+        logger.info("Document %d processed successfully.", document_id)
 
     except Document.DoesNotExist:
-        logger.error('Document %d not found.', document_id)
+        logger.error("Document %d not found.", document_id)
     except Exception as exc:
-        logger.exception('Error processing document %d.', document_id)
+        logger.exception("Error processing document %d.", document_id)
         if document is not None:
             document.status = Document.Status.FAILED
-            document.save(update_fields=['status'])
+            document.save(update_fields=["status"])
         raise self.retry(exc=exc, countdown=60)
 
 
@@ -40,13 +40,13 @@ def _parse_and_chunk(document) -> None:
     from ingestion.parsers.pdf import PDFParser
 
     parsers = {
-        'pdf': PDFParser(),
-        'markdown': MarkdownParser(),
+        "pdf": PDFParser(),
+        "markdown": MarkdownParser(),
     }
 
     parser = parsers.get(document.file_type)
     if parser is None:
-        logger.warning('No parser available for file type %s.', document.file_type)
+        logger.warning("No parser available for file type %s.", document.file_type)
         return
 
     parsed = parser.parse(document.file.path)
@@ -54,17 +54,19 @@ def _parse_and_chunk(document) -> None:
     final_chunks = chunker.chunk(parsed.chunks)
 
     Chunk.objects.filter(document=document).delete()
-    Chunk.objects.bulk_create([
-        Chunk(
-            document=document,
-            content=c.content,
-            chunk_type=c.chunk_type,
-            position=c.position,
-            page_number=c.page_number,
-            metadata=c.metadata,
-        )
-        for c in final_chunks
-    ])
+    Chunk.objects.bulk_create(
+        [
+            Chunk(
+                document=document,
+                content=c.content,
+                chunk_type=c.chunk_type,
+                position=c.position,
+                page_number=c.page_number,
+                metadata=c.metadata,
+            )
+            for c in final_chunks
+        ]
+    )
 
 
 def _generate_embeddings(document) -> None:
@@ -74,4 +76,4 @@ def _generate_embeddings(document) -> None:
     chunks = list(Chunk.objects.filter(document=document, embedding__isnull=True))
     for chunk in chunks:
         chunk.embedding = get_embedding(chunk.content)
-        chunk.save(update_fields=['embedding'])
+        chunk.save(update_fields=["embedding"])

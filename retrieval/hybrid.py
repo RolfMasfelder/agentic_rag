@@ -23,17 +23,17 @@ def hybrid_search(
     scores: dict[int, dict[str, Any]] = {}
 
     for r in vector_results:
-        cid = r['chunk_id']
-        scores[cid] = {**r, 'hybrid_score': r['score'] * vector_weight}
+        cid = r["chunk_id"]
+        scores[cid] = {**r, "hybrid_score": r["score"] * vector_weight}
 
-    max_rank = max((r.get('rank', 0) for r in text_results), default=1.0) or 1.0
+    max_rank = max((r.get("rank", 0) for r in text_results), default=1.0) or 1.0
     for r in text_results:
-        cid = r['chunk_id']
-        normalized = r.get('rank', 0) / max_rank
+        cid = r["chunk_id"]
+        normalized = r.get("rank", 0) / max_rank
         if cid in scores:
-            scores[cid]['hybrid_score'] += normalized * fulltext_weight
+            scores[cid]["hybrid_score"] += normalized * fulltext_weight
         else:
-            scores[cid] = {**r, 'hybrid_score': normalized * fulltext_weight}
+            scores[cid] = {**r, "hybrid_score": normalized * fulltext_weight}
 
-    ranked = sorted(scores.values(), key=lambda x: x['hybrid_score'], reverse=True)
+    ranked = sorted(scores.values(), key=lambda x: x["hybrid_score"], reverse=True)
     return ranked[:limit]
