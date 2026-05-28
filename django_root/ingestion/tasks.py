@@ -35,13 +35,22 @@ def process_document(self, document_id: int) -> None:
 
 def _parse_and_chunk(document) -> None:
     from apps.documents.models import Chunk
+    from ingestion.chunkers.clause import ClauseChunker
     from ingestion.chunkers.paragraph import ParagraphChunker
+    from ingestion.parsers.code import CodeParser
     from ingestion.parsers.markdown import MarkdownParser
+    from ingestion.parsers.openapi import OpenAPIParser
     from ingestion.parsers.pdf import PDFParser
+    from ingestion.parsers.text import PlainTextParser
+    from ingestion.parsers.xml_parser import XMLParser
 
     parsers = {
         "pdf": PDFParser(),
         "markdown": MarkdownParser(),
+        "xml": XMLParser(),
+        "openapi": OpenAPIParser(),
+        "code": CodeParser(),
+        "text": PlainTextParser(),
     }
 
     parser = parsers.get(document.file_type)
@@ -50,7 +59,17 @@ def _parse_and_chunk(document) -> None:
         return
 
     parsed = parser.parse(document.file.path)
-    chunker = ParagraphChunker()
+
+    # Chunker selection:
+    # • metadata["chunker"] == "clause"  → ClauseChunker (contract texts)
+    # • everything else                  → ParagraphChunker
+    # ParagraphChunker passes xml_block/function/class chunks through unchanged.
+    chunker_key = document.metadata.get("chunker", "paragraph")
+    if chunker_key == "clause":
+        chunker = ClauseChunker()
+    else:
+        chunker = ParagraphChunker()
+
     final_chunks = chunker.chunk(parsed.chunks)
 
     Chunk.objects.filter(document=document).delete()

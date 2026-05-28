@@ -6,17 +6,17 @@ Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-28.
 
 ## 1. Parser & Dokumentverarbeitung
 
-- [ ] **XML/XSD-Parser** – `FileType.XML` vorhanden, Parser fehlt
-- [ ] **OpenAPI-Parser** – `FileType.OPENAPI` vorhanden, Parser fehlt
-- [ ] **Code-Parser** – `FileType.CODE` vorhanden, Parser fehlt (Klassen/Funktionen extrahieren)
-- [ ] **Plain-Text-Parser** – `FileType.TEXT` vorhanden, Parser fehlt
-- [ ] **OCR-Integration** – PaddleOCR oder Tesseract für gescannte PDFs (in `Zusammenfassung.txt` erwähnt)
+- [x] **XML/XSD-Parser** – `ingestion/parsers/xml_parser.py`; jedes Kind-Element wird ein `xml_block`-Chunk
+- [x] **OpenAPI-Parser** – `ingestion/parsers/openapi.py`; pro Operation + Schema-Objekt je ein Chunk
+- [x] **Code-Parser** – `ingestion/parsers/code.py`; Python via `ast` (Klassen/Funktionen); andere Sprachen als Absätze
+- [x] **Plain-Text-Parser** – `ingestion/parsers/text.py`; Leerzeilen als Absatz-Trenner
+- [x] **OCR-Integration** – Tesseract-Fallback in `PDFParser` (pytesseract + Pillow); greift bei < 20 Zeichen selektierbarem Text pro Seite
 
 ## 2. Chunking
 
-- [ ] **XML-bewusstes Chunking** – `chunk_type=xml_block` deklariert, aber nie erzeugt
-- [ ] **Code-bewusstes Chunking** – `chunk_type=function/class` deklariert, Extraktion fehlt
-- [ ] **Klausel-Extraktion** – `chunk_type=clause` für Verträge deklariert, nicht implementiert
+- [x] **XML-bewusstes Chunking** – `XMLParser` erzeugt `xml_block`-Chunks; `ParagraphChunker` lässt sie unverändert durch
+- [x] **Code-bewusstes Chunking** – `CodeParser` erzeugt `function`/`class`-Chunks; `ParagraphChunker` lässt sie unverändert durch
+- [x] **Klausel-Extraktion** – `ClauseChunker` (`chunkers/clause.py`) erkennt nummerierte Klauseln, §-Marker, Article/Section-Header; aktivierbar via `document.metadata["chunker"] = "clause"`
 
 ## 3. REST-API – fehlende Endpunkte
 
