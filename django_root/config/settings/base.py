@@ -2,10 +2,11 @@ from pathlib import Path
 
 import environ
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  # django_root/
+REPO_ROOT = BASE_DIR.parent  # project root
 
 env = environ.Env()
-_env_file = BASE_DIR / ".env"
+_env_file = REPO_ROOT / ".env"
 if _env_file.exists():
     environ.Env.read_env(_env_file)
 
@@ -92,9 +93,9 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = REPO_ROOT / "staticfiles"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = REPO_ROOT / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

@@ -20,12 +20,12 @@ Vollständige Spezifikation: `docs/Zusammenfassung.txt`.
 - **PostgreSQL 17** + pgvector (Vektorsuche)
 - **Redis** + Celery (Hintergrundjobs)
 - **Ollama** läuft auf einem separaten Netzwerkrechner (`OLLAMA_BASE_URL` in `.env`); wenn nicht erreichbar, Nutzer informieren und keine Fallback-LLM-Aufrufe versuchen
-- Docker Compose als primäre Laufzeitumgebung (UID 1234:1234 in Containern); `Dockerfile` und `docker-compose.yml` liegen in `docker/`; Aufruf: `docker compose -f docker/docker-compose.yml …`
+- Docker Compose als primäre Laufzeitumgebung (UID 1234:1234 in Containern); `Dockerfile` und `docker-compose.yml` liegen in `docker/`; Aufruf: `docker compose -f docker/docker-compose.yml …`; Django-Code liegt in `django_root/` (PYTHONPATH=/app/django_root im Container)
 
 ## Konventionen
 
-- Beim Generieren von Agent-Code: Agents dürfen die DB nur über Funktionen in `agents/tools/` ansprechen, niemals direkt über Django ORM oder raw SQL. Neue Tool-Funktionen als reine Python-Funktionen mit Type-Hints und Docstring in `agents/tools/<domain>.py` ablegen; keine Seiteneffekte außer DB-Zugriffen.
-- Einstellungen: `config/settings/base.py` (gemeinsam), `dev.py`, `prod.py`
+- Beim Generieren von Agent-Code: Agents dürfen die DB nur über Funktionen in `agents/tools/` ansprechen, niemals direkt über Django ORM oder raw SQL. Neue Tool-Funktionen als reine Python-Funktionen mit Type-Hints und Docstring in `django_root/agents/tools/<domain>.py` ablegen; keine Seiteneffekte außer DB-Zugriffen.
+- Einstellungen: `django_root/config/settings/base.py` (gemeinsam), `dev.py`, `prod.py`
 - `.env` wird nur geladen wenn vorhanden – CI setzt Env-Variablen direkt; bei fehlender `.env` außerhalb von CI: Nutzer warnen und auf `.env.example` als Vorlage verweisen
 - Linting: `ruff` (Konfiguration in `pyproject.toml`); vor jedem Commit `ruff check .` und `pytest` ausführen. Bei nicht-null Exit-Code eines der beiden Befehle nicht committen und Nutzer informieren. Bei auto-fixbaren Ruff-Issues niemals automatisch `--fix` ausführen; stattdessen Nutzer informieren und auf Bestätigung warten.
 - Tests: `pytest` + `pytest-django` (`requirements-dev.txt`)

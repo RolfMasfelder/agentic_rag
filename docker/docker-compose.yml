@@ -30,7 +30,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     restart: unless-stopped
-    command: python manage.py runserver 0.0.0.0:8000
+    command: python django_root/manage.py runserver 0.0.0.0:8000
     volumes:
       - ..:/app:z
       - media_data:/app/media
@@ -39,6 +39,7 @@ services:
     env_file: ../.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev
+      PYTHONPATH: /app/django_root
     depends_on:
       db:
         condition: service_healthy
@@ -57,6 +58,7 @@ services:
     env_file: ../.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev
+      PYTHONPATH: /app/django_root
     depends_on:
       db:
         condition: service_healthy
