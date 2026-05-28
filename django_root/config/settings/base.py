@@ -34,7 +34,11 @@ LOCAL_APPS = [
     "apps.users",
     "apps.documents",
     "apps.audit",
+    "apps.agent",
 ]
+
+# Agent settings
+AGENT_MAX_CONTEXT_TOKENS = env.int("AGENT_MAX_CONTEXT_TOKENS", default=6_000)
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 

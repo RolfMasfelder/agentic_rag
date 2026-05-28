@@ -15,15 +15,16 @@ class AgentQueryView(APIView):
     Request body:
         {
             "query": "Was sind die wichtigsten Klauseln in Dokument 3?",
-            "max_iterations": 5  // optional, default 5
+            "max_iterations": 5,   // optional, default 5
+            "async": false         // optional, default false
         }
 
-    Response:
-        {
-            "answer": "...",
-            "iterations": 3,
-            "sources": [{"chunk_id": 1, "document_id": 2, "content": "..."}, ...]
-        }
+    Synchronous response:
+        {"answer": "...", "iterations": 3, "sources": [...]}
+
+    Async response (HTTP 202):
+        {"task_id": "<uuid>", "status": "pending",
+         "poll_url": "/api/agent/tasks/<uuid>/"}
     """
 
     def post(self, request: Request) -> Response:
@@ -41,6 +42,11 @@ class AgentQueryView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        run_async: bool = bool(request.data.get("async", False))
+
+        if run_async:
+            return self._dispatch_async(query, max_iterations, request)
+
         try:
             from agents.orchestrator import run_agent
 
@@ -56,9 +62,27 @@ class AgentQueryView(APIView):
         return Response(
             {
                 "answer": result.get("answer", ""),
+                "plan": result.get("plan", ""),
                 "iterations": result.get("iterations", 0),
                 "sources": sources,
             }
+        )
+
+    def _dispatch_async(self, query: str, max_iterations: int, request: Request) -> Response:
+        from agents.tasks import run_agent_task
+        from apps.agent.models import AgentTask
+
+        task = AgentTask.objects.create(query=query, max_iterations=max_iterations)
+        run_agent_task.delay(str(task.pk), query, max_iterations)
+
+        poll_url = request.build_absolute_uri(f"/api/agent/tasks/{task.pk}/")
+        return Response(
+            {
+                "task_id": str(task.pk),
+                "status": task.status,
+                "poll_url": poll_url,
+            },
+            status=status.HTTP_202_ACCEPTED,
         )
 
 

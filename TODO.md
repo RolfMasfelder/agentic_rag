@@ -33,12 +33,12 @@ Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-28.
 - [x] **Re-Ranking** – `retrieval/reranker.py`; LLM bewertet jeden Treffer 0–10, sortiert neu; nutzt vorhandenen Ollama-Client, kein Cross-Encoder nötig
 - [x] **Query-Expansion** – `retrieval/query_expansion.py`; LLM ergänzt Synonyme/Fachbegriffe; optional per `expand=True` in `search_documents`-Tool nutzbar
 
-## 5. Agentische Architektur
+## 5. Agentische Architektur ✅
 
-- [ ] **Tool-Schema-Validierung** – Parameter-Validierung vor Ausführung (aktuell: direktes JSON-Parsing ohne Schema)
-- [ ] **Context-Window-Management** – Gesprächsverlauf kürzen wenn Tokenlimit überschritten wird
-- [ ] **Iterativer Retrieval-Plan** – Agent soll Suchschritte explizit planen statt nur zu loopen
-- [ ] **Agent-Task via Celery** – Lang laufende Agent-Anfragen asynchron ausführen (in `Zusammenfassung.txt` erwähnt)
+- [x] **Tool-Schema-Validierung** – Parameter-Validierung vor Ausführung (`agents/schema.py`)
+- [x] **Context-Window-Management** – Gesprächsverlauf kürzen wenn Tokenlimit überschritten wird (`agents/context.py`)
+- [x] **Iterativer Retrieval-Plan** – Agent plant Suchschritte explizit (PLAN:-Phase im Orchestrator)
+- [x] **Agent-Task via Celery** – Asynchrone Agent-Ausführung über `apps/agent/` + `agents/tasks.py`
 
 ## 6. LLM-Client
 
