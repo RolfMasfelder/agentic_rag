@@ -21,3 +21,6 @@ DJANGO_SETTINGS_MODULE = "config.settings.dev"
 python_files = ["tests.py", "test_*.py", "*_test.py"]
 addopts = "--tb=short -q"
 pythonpath = ["django_root"]
+markers = [
+    "e2e: end-to-end tests requiring PostgreSQL + Ollama (run with -m e2e inside Docker)",
+]
