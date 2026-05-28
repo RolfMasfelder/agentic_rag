@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - .:/app
+      - .:/app:z
       - media_data:/app/media
     ports:
       - "8000:8000"
@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
     command: celery -A config worker --loglevel=INFO
     volumes:
-      - .:/app
+      - .:/app:z
       - media_data:/app/media
     env_file: .env
     environment:

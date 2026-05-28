@@ -1,8 +1,8 @@
 from typing import Any
 
+from llm.client import get_embedding
 from retrieval.hybrid import hybrid_search
 from retrieval.vector_search import search_similar_chunks as _vector_search
-from llm.client import get_embedding
 
 
 def search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
@@ -24,4 +24,5 @@ def search_similar_chunks(
 def search_by_metadata(filters: dict[str, Any], limit: int = 50) -> list[dict[str, Any]]:
     """Filter documents by metadata attributes."""
     from retrieval.metadata_filter import filter_by_metadata
+
     return filter_by_metadata(filters, limit=limit)

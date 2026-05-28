@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 import ollama
 from django.conf import settings
@@ -14,7 +13,7 @@ def _client() -> ollama.Client:
 def get_embedding(text: str) -> list[float]:
     """Generate an embedding vector for text via Ollama."""
     response = _client().embeddings(model=settings.OLLAMA_EMBED_MODEL, prompt=text)
-    return response['embedding']
+    return response["embedding"]
 
 
 def chat(
@@ -28,7 +27,7 @@ def chat(
     Returns the assistant message content as a string.
     """
     if isinstance(messages, str):
-        messages = [{'role': 'user', 'content': messages}]
+        messages = [{"role": "user", "content": messages}]
 
     response = _client().chat(
         model=model or settings.OLLAMA_CHAT_MODEL,
@@ -36,5 +35,5 @@ def chat(
     )
     # Support both dict and Pydantic-style response objects
     if isinstance(response, dict):
-        return response['message']['content']
+        return response["message"]["content"]
     return response.message.content

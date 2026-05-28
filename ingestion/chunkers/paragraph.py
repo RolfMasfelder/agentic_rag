@@ -1,5 +1,5 @@
-from .base import BaseChunker
 from ..parsers.base import ParsedChunk
+from .base import BaseChunker
 
 
 class ParagraphChunker(BaseChunker):
@@ -24,13 +24,15 @@ class ParagraphChunker(BaseChunker):
         start = 0
         while start < len(text):
             end = min(start + self.max_chars, len(text))
-            sub_chunks.append(ParsedChunk(
-                content=text[start:end],
-                chunk_type=chunk.chunk_type,
-                position=chunk.position + len(sub_chunks),
-                page_number=chunk.page_number,
-                metadata={**chunk.metadata, 'split_index': len(sub_chunks)},
-            ))
+            sub_chunks.append(
+                ParsedChunk(
+                    content=text[start:end],
+                    chunk_type=chunk.chunk_type,
+                    position=chunk.position + len(sub_chunks),
+                    page_number=chunk.page_number,
+                    metadata={**chunk.metadata, "split_index": len(sub_chunks)},
+                )
+            )
             if end == len(text):
                 break
             start = end - self.overlap_chars

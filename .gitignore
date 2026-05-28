@@ -21,6 +21,10 @@ staticfiles/
 # Environment
 .env
 
+# Test- und Beispieldaten (Verzeichnis bleibt via .gitkeep erhalten)
+data/*
+!data/.gitkeep
+
 # IDE
 .idea/
 .vscode/
