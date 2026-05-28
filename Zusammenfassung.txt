@@ -1,0 +1,326 @@
+# Hybrid Agentic RAG System (On-Prem, Python/Django/PostgreSQL)
+
+## Projektziel
+
+Entwicklung eines lokalen KI-gestützten Analyse- und Retrieval-Systems für strukturierte und unstrukturierte Dokumente.
+
+Das System soll:
+
+* Dokumente und Sourcecode analysieren
+* semantische Suche ermöglichen
+* Beziehungen zwischen Dokumenten erkennen
+* iteratives Retrieval unterstützen
+* lokale LLMs verwenden
+* vollständig On-Prem betrieben werden
+
+Der Fokus liegt NICHT auf einem einfachen "Chat mit PDFs", sondern auf einem erweiterbaren Analyse- und Wissenssystem.
+
+---
+
+# Grundprinzip
+
+Das System besteht aus mehreren Ebenen:
+
+1. Dokumentverarbeitung
+2. Wissensspeicherung
+3. Retrieval
+4. Agentische Orchestrierung
+5. LLM-gestützte Analyse
+
+Das LLM besitzt keinen direkten Datenbankzugriff.
+
+Stattdessen benutzt ein Agent Werkzeuge (Tools/MCP), um:
+
+* Daten zu suchen
+* Beziehungen zu analysieren
+* Nachrecherchen auszuführen
+* Ergebnisse zusammenzuführen
+
+---
+
+# Technologiestack
+
+## Kernsystem
+
+* Python
+* Django
+* PostgreSQL
+* pgvector
+* Redis
+* Celery
+
+---
+
+# Lokale LLMs
+
+## Laufzeit
+
+* Ollama
+  oder
+* LM Studio
+
+## Modelle
+
+Empfohlene lokale Modelle:
+
+* Qwen
+* DeepSeek
+* Mistral
+* Llama
+
+Das Modell dient:
+
+* Analyse
+* Zusammenfassung
+* Retrieval-Steuerung
+* Tool-Orchestrierung
+
+NICHT als primäre Wissensquelle.
+
+---
+
+# Dokumentverarbeitung
+
+## Ziel
+
+Dokumente werden in strukturierte Wissenseinheiten zerlegt.
+
+## Empfohlene Tools
+
+### PDF / Struktur
+
+* PyMuPDF
+* pdfplumber
+
+### OCR
+
+* PaddleOCR
+* optional Tesseract
+
+### Strukturierung
+
+* unstructured.io
+* eigene Parser
+
+---
+
+# Chunking-Strategie
+
+Chunking darf NICHT rein tokenbasiert erfolgen.
+
+Stattdessen fachlich strukturieren:
+
+* Paragraphen
+* Vertragsklauseln
+* XML-Blöcke
+* Klassen/Funktionen
+* API-Endpunkte
+* Markdown-Abschnitte
+
+Jeder Chunk erhält:
+
+* Metadaten
+* Dokumentreferenz
+* Positionsdaten
+* Embedding
+* optionale Relationen
+
+---
+
+# Datenmodell
+
+## PostgreSQL
+
+PostgreSQL ist das zentrale Wissenssystem.
+
+Enthält:
+
+* Dokumente
+* Chunks
+* Embeddings
+* Metadaten
+* Beziehungen
+* Benutzerrechte
+* Analyseergebnisse
+
+---
+
+# Vector Search
+
+## pgvector
+
+Verwendung für:
+
+* semantische Ähnlichkeit
+* ähnliche Klauseln
+* ähnliche Funktionen
+* ähnliche Dokumente
+
+Vector Search ist nur EIN Teil des Retrievals.
+
+---
+
+# Hybrid Retrieval
+
+Kombination aus:
+
+1. Vector Similarity
+2. PostgreSQL Fulltext Search
+3. Metadata Filter
+4. Relational Traversal
+5. Agent-gesteuerter Nachrecherche
+
+---
+
+# Beziehungen / Graph-Struktur
+
+Keine separate Graphdatenbank zu Beginn notwendig.
+
+Stattdessen relationale Tabellen:
+
+## Beispiel
+
+document_relations
+
+* source_document
+* target_document
+* relation_type
+* confidence
+* created_by
+
+Mögliche Beziehungen:
+
+* referenziert
+* erweitert
+* widerspricht
+* ähnlich
+* gehört_zu
+* basiert_auf
+
+---
+
+# Agentische Architektur
+
+## Wichtiger Unterschied
+
+Das LLM beantwortet nicht einfach Fragen.
+
+Der Agent:
+
+* plant Retrieval-Schritte
+* führt mehrere Suchläufe aus
+* bewertet Ergebnisse
+* erzeugt neue Suchanfragen
+* kombiniert Resultate
+
+---
+
+# MCP / Tool-System
+
+Das LLM darf ausschließlich über definierte Werkzeuge arbeiten.
+
+## Beispieltools
+
+* search_documents()
+* search_similar_chunks()
+* load_document()
+* find_related_documents()
+* list_document_relations()
+* search_by_metadata()
+* summarize_document()
+
+---
+
+# Beispielhafter Ablauf
+
+Userfrage:
+"Welche Verträge enthalten ähnliche Haftungsregeln?"
+
+Ablauf:
+
+1. Agent analysiert Anfrage
+2. Retrieval über pgvector
+3. Ähnliche Klauseln finden
+4. Metadaten filtern
+5. Beziehungen traversieren
+6. Weitere Retrieval-Schritte ausführen
+7. Ergebnisse aggregieren
+8. Antwort mit Quellen erzeugen
+
+---
+
+# Rollen von Django
+
+Django dient NICHT primär als Chat-Frontend.
+
+Sondern als:
+
+* Benutzerverwaltung
+* Rollenmodell
+* Rechteverwaltung
+* Dokumentverwaltung
+* Workflowsteuerung
+* API-Schicht
+* Audit-Logging
+
+---
+
+# Celery / Redis
+
+Verwendung für Hintergrundjobs:
+
+* OCR
+* Embedding-Erzeugung
+* Dokumentanalyse
+* Reindexierung
+* Batch-Importe
+* Agent-Tasks
+
+---
+
+# Entwicklung ohne echte Kanzleidaten
+
+Geeignete Testdaten:
+
+* Open Source Projekte
+* Markdown-Dokumentationen
+* XML/XSD-Dateien
+* OpenAPI-Spezifikationen
+* RFCs
+* Beispielverträge
+* Gesetzestexte
+* Rechnungsbeispiele
+* technische Dokumentationen
+
+Die Architekturprobleme lassen sich damit realistisch entwickeln.
+
+---
+
+# Architekturprinzipien
+
+Wichtig:
+
+* Retrieval wichtiger als Modellgröße
+* Datenmodell wichtiger als Chat-Oberfläche
+* Nachvollziehbarkeit wichtiger als kreative Antworten
+* Kleine spezialisierte Tools statt "magischer KI"
+
+---
+
+# Langfristiges Ziel
+
+Kein einfacher Chatbot.
+
+Sondern:
+
+Ein lokales Wissens- und Analysesystem mit:
+
+* semantischer Suche
+* strukturellen Beziehungen
+* iterativer Exploration
+* agentischer Tool-Nutzung
+* nachvollziehbaren Quellen
+* kontrolliertem Datenzugriff
+
+Das LLM dient dabei als Analyse- und Orchestrierungskomponente.
+
