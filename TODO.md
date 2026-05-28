@@ -40,11 +40,11 @@ Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-28.
 - [x] **Iterativer Retrieval-Plan** – Agent plant Suchschritte explizit (PLAN:-Phase im Orchestrator)
 - [x] **Agent-Task via Celery** – Asynchrone Agent-Ausführung über `apps/agent/` + `agents/tasks.py`
 
-## 6. LLM-Client
+## 6. LLM-Client ✅
 
-- [ ] **Streaming** – `ollama.Client` unterstützt Streaming; für lange Antworten nutzbar
-- [ ] **Prompt-Templates** – Wiederverwendbare Templates für Analyse, Zusammenfassung, Retrieval-Steuerung
-- [ ] **Fallback-Modell** – AlternativersModell wenn primäres Modell nicht verfügbar
+- [x] **Streaming** – `chat_stream()` in `llm/client.py`; `run_agent_stream()` + SSE-Endpunkt `POST /api/agent/stream/`
+- [x] **Prompt-Templates** – `llm/prompts.py`: summarize, analyze, retrieval_augmented, extract_keywords, compare_documents
+- [x] **Fallback-Modell** – `chat()` / `chat_stream()` retries with `OLLAMA_FALLBACK_MODEL` on failure
 
 ## 7. Sicherheit & Berechtigungen
 

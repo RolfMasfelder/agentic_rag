@@ -1,6 +1,7 @@
 import json
 import logging
 
+from django.http import StreamingHttpResponse
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -120,3 +121,57 @@ def _extract_sources(conversation: list[dict]) -> list[dict]:
                 )
 
     return sources
+
+
+class AgentStreamView(APIView):
+    """POST /api/agent/stream/ – Server-Sent Events (SSE) streaming endpoint.
+
+    Runs the full agentic loop and streams events as they occur.
+    PLAN/TOOL events are emitted as single JSON objects; the final ANSWER is
+    streamed token by token via ``answer_chunk`` events.
+
+    Request body: ``{"query": "...", "max_iterations": 5}``
+
+    SSE event format::
+
+        data: {"type": "plan",        "content": "step1 | step2"}
+        data: {"type": "tool_call",   "tool": "search_documents", "args": {...}}
+        data: {"type": "tool_result", "content": [...]}
+        data: {"type": "answer_chunk","content": "partial text"}
+        data: {"type": "done",        "iterations": 3}
+        data: [DONE]
+    """
+
+    def post(self, request: Request) -> StreamingHttpResponse:
+        query: str = request.data.get("query", "").strip()
+        if not query:
+            return Response(  # type: ignore[return-value]
+                {"detail": "Feld 'query' ist erforderlich."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        max_iterations: int = int(request.data.get("max_iterations", 5))
+        if not 1 <= max_iterations <= 20:
+            return Response(  # type: ignore[return-value]
+                {"detail": "'max_iterations' muss zwischen 1 und 20 liegen."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        def event_generator():
+            from agents.orchestrator import run_agent_stream
+
+            try:
+                for event in run_agent_stream(query, max_iterations=max_iterations):
+                    yield f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
+            except Exception:
+                logger.exception("Streaming agent error for query: %s", query[:200])
+                yield f"data: {json.dumps({'type': 'error', 'content': 'Interner Fehler.'})}\n\n"
+            yield "data: [DONE]\n\n"
+
+        response = StreamingHttpResponse(
+            event_generator(),
+            content_type="text/event-stream",
+        )
+        response["Cache-Control"] = "no-cache"
+        response["X-Accel-Buffering"] = "no"
+        return response
