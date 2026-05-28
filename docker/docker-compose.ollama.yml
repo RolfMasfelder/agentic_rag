@@ -1,0 +1,29 @@
+# Separate Compose-Datei für den Ollama-Dienst.
+# Auf dem Ollama-Rechner deployen:
+#   docker compose -f docker-compose.ollama.yml up -d
+#
+# OLLAMA_HOST=0.0.0.0 macht die API im Netzwerk erreichbar (Port 11434).
+# Im Haupt-.env dieser Maschine dann:
+#   OLLAMA_BASE_URL=http://<ip-des-ollama-rechners>:11434
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_HOST: "0.0.0.0"
+    # Für GPU-Unterstützung (NVIDIA) die beiden deploy-Zeilen einkommentieren:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_data:
