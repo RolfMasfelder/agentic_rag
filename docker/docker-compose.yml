@@ -27,16 +27,16 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     restart: unless-stopped
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - .:/app:z
+      - ..:/app:z
       - media_data:/app/media
     ports:
       - "8000:8000"
-    env_file: .env
+    env_file: ../.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev
     depends_on:
@@ -47,14 +47,14 @@ services:
 
   worker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     restart: unless-stopped
     command: celery -A config worker --loglevel=INFO
     volumes:
-      - .:/app:z
+      - ..:/app:z
       - media_data:/app/media
-    env_file: .env
+    env_file: ../.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev
     depends_on:

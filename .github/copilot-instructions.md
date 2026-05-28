@@ -12,7 +12,7 @@ Commit-Format: `<prefix>: kurze Beschreibung auf Englisch` (eine Zeile, maximal 
 ## Projektüberblick
 
 Hybrid Agentic RAG System – lokales KI-Analyse- und Retrieval-System.
-Vollständige Spezifikation: `Zusammenfassung.txt`.
+Vollständige Spezifikation: `docs/Zusammenfassung.txt`.
 
 ## Stack
 
@@ -20,7 +20,7 @@ Vollständige Spezifikation: `Zusammenfassung.txt`.
 - **PostgreSQL 17** + pgvector (Vektorsuche)
 - **Redis** + Celery (Hintergrundjobs)
 - **Ollama** läuft auf einem separaten Netzwerkrechner (`OLLAMA_BASE_URL` in `.env`); wenn nicht erreichbar, Nutzer informieren und keine Fallback-LLM-Aufrufe versuchen
-- Docker Compose als primäre Laufzeitumgebung (UID 1234:1234 in Containern)
+- Docker Compose als primäre Laufzeitumgebung (UID 1234:1234 in Containern); `Dockerfile` und `docker-compose.yml` liegen in `docker/`; Aufruf: `docker compose -f docker/docker-compose.yml …`
 
 ## Konventionen
 
@@ -31,4 +31,4 @@ Vollständige Spezifikation: `Zusammenfassung.txt`.
 - Tests: `pytest` + `pytest-django` (`requirements-dev.txt`)
 - Migrations: Wenn die Datenbank leer ist oder die `vector`-Extension noch nicht existiert, zuerst `migrate documents 0001` ausführen (erstellt die `vector`-Extension); danach für neue Modelländerungen `makemigrations` und `migrate`
 - Dokumentation immer in `docs/` ablegen
-- Skripte immer in `scripts/` ablegen
+- Skripte immer in `scripts/` ablegen – Ausnahme: Installations- und Docker-Hilfsskripte gehören in `docker/`
