@@ -115,6 +115,8 @@ CELERY_RESULT_SERIALIZER = "json"
 OLLAMA_BASE_URL = env("OLLAMA_BASE_URL", default="http://ollama:11434")
 OLLAMA_EMBED_MODEL = env("OLLAMA_EMBED_MODEL", default="nomic-embed-text")
 OLLAMA_CHAT_MODEL = env("OLLAMA_CHAT_MODEL", default="qwen2.5:7b")
+# Leave empty to disable fallback; set e.g. "llama3.2:3b" for a lighter model.
+OLLAMA_FALLBACK_MODEL = env("OLLAMA_FALLBACK_MODEL", default="")
 EMBEDDING_DIM = env.int("EMBEDDING_DIM", default=768)
 
 # Django REST Framework
