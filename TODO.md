@@ -70,9 +70,9 @@ Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-28.
 
 ## 10. Testdaten (laut Zusammenfassung.txt)
 
-- [ ] Beispiel-PDFs besorgen (Gesetzestexte, RFCs, Beispielverträge) → `data/`
-- [ ] OpenAPI-Specs als Testdokumente → `data/`
-- [ ] XML/XSD-Beispieldateien → `data/`
-- [ ] Markdown-Dokumentationen (z. B. Open-Source-Projekte) → `data/`
+- [x] Beispiel-PDFs besorgen (Gesetzestexte, RFCs, Beispielverträge) → `data/`
+- [x] OpenAPI-Specs als Testdokumente → `data/`
+- [x] XML/XSD-Beispieldateien → `data/`
+- [x] Markdown-Dokumentationen (z. B. Open-Source-Projekte) → `data/`
 
 > `data/` ist in `.gitignore` eingetragen (nur `.gitkeep` wird versioniert).

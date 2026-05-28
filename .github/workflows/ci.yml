@@ -71,6 +71,7 @@ jobs:
       OLLAMA_EMBED_MODEL: nomic-embed-text
       OLLAMA_CHAT_MODEL: qwen2.5:7b
       EMBEDDING_DIM: "768"
+      PYTHONPATH: django_root
 
     steps:
       - uses: actions/checkout@v6
@@ -87,10 +88,10 @@ jobs:
         run: pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Django system check
-        run: python manage.py check
+        run: python django_root/manage.py check
 
       - name: Run migrations
-        run: python manage.py migrate
+        run: python django_root/manage.py migrate
 
       - name: Run tests
         run: pytest --cov --cov-report=term-missing || [[ $? -eq 5 ]]
