@@ -29,7 +29,14 @@ class DocumentRelationSerializer(serializers.ModelSerializer):
         fields = ["id", "source_document", "target_document", "relation_type", "confidence", "created_by", "created_at"]
 
 
+class DocumentRelationWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DocumentRelation
+        fields = ["source_document", "target_document", "relation_type", "confidence"]
+
+
 class AnalysisResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnalysisResult
         fields = ["id", "document", "result_type", "content", "created_at"]
+        read_only_fields = ["created_at"]

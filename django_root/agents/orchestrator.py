@@ -15,6 +15,8 @@ TOOLS: dict[str, Any] = {
     "find_related_documents": doc_tools.find_related_documents,
     "list_document_relations": doc_tools.list_document_relations,
     "summarize_document": doc_tools.summarize_document,
+    "graph_traversal": doc_tools.graph_traversal,
+    "find_similar_documents": doc_tools.find_similar_documents,
 }
 
 _SYSTEM_PROMPT = (

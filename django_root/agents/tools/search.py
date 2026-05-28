@@ -5,8 +5,19 @@ from retrieval.hybrid import hybrid_search
 from retrieval.vector_search import search_similar_chunks as _vector_search
 
 
-def search_documents(query: str, limit: int = 10) -> list[dict[str, Any]]:
-    """Search for document chunks relevant to the query using hybrid retrieval."""
+def search_documents(
+    query: str,
+    limit: int = 10,
+    expand: bool = False,
+) -> list[dict[str, Any]]:
+    """Search for document chunks relevant to the query using hybrid retrieval.
+
+    Set *expand* to True to first run query expansion via the LLM.
+    """
+    if expand:
+        from retrieval.query_expansion import expand_query
+
+        query = expand_query(query)
     return hybrid_search(query, limit=limit)
 
 
