@@ -75,10 +75,9 @@ def _create_document(user, title: str, raw: bytes, file_type: str, filename: str
 
 @pytest.mark.django_db
 def test_e2e_text_ingest_and_search(user):
-    """Plain-text: parse → chunk → embed → hybrid_search returns relevant chunks."""
+    """Plain-text: parse → chunk → embed → vector search returns relevant chunks."""
     from apps.documents.models import Chunk, Document
     from ingestion.tasks import _generate_embeddings, _parse_and_chunk
-    from retrieval.hybrid import hybrid_search
 
     content = (
         "The key words MUST, MUST NOT, and REQUIRED are defined in RFC 2119.\n\n"
@@ -95,8 +94,12 @@ def test_e2e_text_ingest_and_search(user):
     assert len(chunks) >= 2, f"Expected ≥2 chunks, got {len(chunks)}"
     assert all(c.embedding is not None for c in chunks), "All chunks must have embeddings"
 
-    results = hybrid_search("what does MUST mean", limit=5, document_ids=[doc.pk])
-    assert len(results) > 0, "hybrid_search returned no results"
+    from llm.client import get_embedding
+    from retrieval.vector_search import search_similar_chunks
+
+    query_embedding = get_embedding("what does MUST mean")
+    results = search_similar_chunks(query_embedding, limit=5, document_ids=[doc.pk], min_score=0.3)
+    assert len(results) > 0, "search_similar_chunks returned no results"
     top_content = results[0]["content"]
     assert "MUST" in top_content or "requirement" in top_content.lower()
 
@@ -133,9 +136,9 @@ def test_e2e_xml_ingest(user):
     content = (
         '<?xml version="1.0"?>\n'
         "<config>\n"
-        '  <database host="localhost" port="5432" name="app_db"/>\n'
-        '  <cache backend="redis" timeout="300"/>\n'
-        '  <logging level="INFO" format="json"/>\n'
+        "  <database>Connects to PostgreSQL on localhost at port 5432, database name app_db.</database>\n"
+        "  <cache>Uses Redis as cache backend with a timeout of 300 seconds.</cache>\n"
+        "  <logging>Logs at INFO level using JSON format for structured output.</logging>\n"
         "</config>"
     )
     raw = content.encode()

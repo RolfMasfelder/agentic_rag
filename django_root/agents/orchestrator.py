@@ -86,7 +86,13 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
             )
         else:
             logger.warning("Unexpected agent response: %s", response[:120])
-            break
+            # Model ignored directive format – return its text directly as answer.
+            return {
+                "answer": response,
+                "plan": plan,
+                "iterations": iteration + 1,
+                "conversation": conversation,
+            }
 
     return {
         "answer": "Maximale Iterationsanzahl erreicht.",
