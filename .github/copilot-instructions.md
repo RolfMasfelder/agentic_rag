@@ -20,7 +20,7 @@ Vollständige Spezifikation: `docs/Zusammenfassung.txt`.
 - **PostgreSQL 17** + pgvector (Vektorsuche)
 - **Redis** + Celery (Hintergrundjobs)
 - **Ollama** läuft auf einem separaten Netzwerkrechner (`OLLAMA_BASE_URL` in `.env`); wenn nicht erreichbar, Nutzer informieren und keine Fallback-LLM-Aufrufe versuchen
-- Docker Compose als primäre Laufzeitumgebung (UID 1234:1234 in Containern); `Dockerfile` und `docker-compose.yml` liegen in `docker/`; Aufruf: `docker compose -f docker/docker-compose.yml …`; Django-Code liegt in `django_root/` (PYTHONPATH=/app/django_root im Container)
+- Docker Compose als primäre Laufzeitumgebung (UID 1234:1234 in Containern); `Dockerfile` und `docker-compose.yml` liegen in `docker/`; Aufruf: `docker compose -f docker/docker-compose.yml --env-file .env …`; Django-Code liegt in `django_root/` (PYTHONPATH=/app/django_root im Container)
 
 ## Konventionen
 
