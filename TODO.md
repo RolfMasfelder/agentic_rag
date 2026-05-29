@@ -48,9 +48,9 @@ Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-28.
 
 ## 7. Sicherheit & Berechtigungen
 
-- [ ] **Rollen-Enforcement** – `ADMIN/ANALYST/VIEWER`-Rollen vorhanden, aber DRF-Permissions prüfen nicht die Rolle
-- [ ] **Objekt-Level-Permissions** – Nutzer soll nur eigene Dokumente sehen/bearbeiten können (oder Admin alle)
-- [ ] **Token-Authentifizierung** – Für API-Clients ohne Session (DRF `TokenAuthentication` oder JWT)
+- [x] **Rollen-Enforcement** – `IsAnalystOrAbove`-Permission in `apps/users/permissions.py`; VIEWER darf nur lesen, ANALYST/ADMIN dürfen schreiben
+- [x] **Objekt-Level-Permissions** – `IsOwnerOrAdmin` für `DocumentViewSet`; `get_queryset()` filtert alle drei ViewSets auf eigene Dokumente (nicht-ADMIN sieht/bearbeitet nur eigene); `perform_create` prüft Eigentümerschaft für Relations und AnalysisResults
+- [x] **Token-Authentifizierung** – `rest_framework.authtoken` + `TokenAuthentication` in DRF-Settings; Token-Endpunkt `POST /api/auth/token/`
 
 ## 8. Tests ✅
 
