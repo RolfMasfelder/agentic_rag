@@ -37,14 +37,29 @@ def _user_documents(user):
 
 
 _EXT_TO_FILE_TYPE: dict[str, str] = {
+    # PDF
     ".pdf": "pdf",
+    # Markdown / reStructuredText
     ".md": "markdown",
     ".rst": "markdown",
+    # XML family
     ".xml": "xml",
     ".xsd": "xml",
+    ".xsl": "xml",
+    ".xslt": "xml",
+    ".atom": "xml",
+    ".rss": "xml",
+    ".rdf": "xml",
+    ".svg": "xml",
+    ".kml": "xml",
+    ".gpx": "xml",
+    ".wsdl": "xml",
+    ".pom": "xml",
+    # OpenAPI / structured data
     ".yaml": "openapi",
     ".yml": "openapi",
     ".json": "openapi",
+    # Code
     ".py": "code",
     ".js": "code",
     ".ts": "code",
@@ -52,13 +67,66 @@ _EXT_TO_FILE_TYPE: dict[str, str] = {
     ".c": "code",
     ".cpp": "code",
     ".h": "code",
+    ".hpp": "code",
+    ".go": "code",
+    ".rs": "code",
+    ".rb": "code",
+    ".cs": "code",
+    ".php": "code",
+    ".kt": "code",
+    ".swift": "code",
+    ".sh": "code",
+    ".bash": "code",
+    # Plain text
     ".txt": "text",
     ".text": "text",
+    ".csv": "text",
+    ".tsv": "text",
+    ".html": "text",
+    ".htm": "text",
+    ".ini": "text",
+    ".toml": "text",
+    ".cfg": "text",
+    ".conf": "text",
 }
 
+# Magic-byte signatures tried when extension is unknown.
+# Each entry: (prefix_bytes, file_type)
+_MAGIC_SIGNATURES: list[tuple[bytes, str]] = [
+    (b"%PDF-", "pdf"),
+    (b"<?xml", "xml"),
+    (b"<feed", "xml"),  # Atom without XML declaration
+    (b"<rss", "xml"),
+    (b"<svg", "xml"),
+    (b"<opml", "xml"),
+]
 
-def _auto_detect_file_type(filename: str) -> str:
-    return _EXT_TO_FILE_TYPE.get(Path(filename).suffix.lower(), "other")
+
+def _sniff_content_type(head: bytes) -> str:
+    """Return a file_type string inferred from the first bytes of content."""
+    stripped = head.lstrip()
+    for signature, file_type in _MAGIC_SIGNATURES:
+        if stripped.startswith(signature):
+            return file_type
+    # Try UTF-8 text patterns
+    try:
+        text = stripped[:128].decode("utf-8", errors="ignore").lstrip()
+    except Exception:
+        return "other"
+    if text.startswith("openapi:") or text.startswith("swagger:"):
+        return "openapi"
+    if text.startswith("{") or text.startswith("["):
+        if "openapi" in text or "swagger" in text:
+            return "openapi"
+    return "other"
+
+
+def _auto_detect_file_type(filename: str, head: bytes = b"") -> str:
+    """Detect file type from extension; fall back to magic-byte sniffing for unknowns."""
+    detected = _EXT_TO_FILE_TYPE.get(Path(filename).suffix.lower(), "other")
+    if detected == "other" and head:
+        return _sniff_content_type(head)
+    return detected
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -157,7 +225,7 @@ def document_upload(request):
                     if Document.objects.filter(content_hash=content_hash).exists():
                         skipped += 1
                         continue
-                    detected_type = _auto_detect_file_type(uploaded_file.name)
+                    detected_type = _auto_detect_file_type(uploaded_file.name, content[:64])
                     title = Path(uploaded_file.name).stem.replace("_", " ").replace("-", " ")
                     doc = Document.objects.create(
                         title=title,
