@@ -1,6 +1,7 @@
 import hashlib
 import logging
 from functools import wraps
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib import messages
@@ -32,6 +33,31 @@ def _user_documents(user):
     if user.role == "admin":
         return Document.objects.all()
     return Document.objects.filter(created_by=user)
+
+
+_EXT_TO_FILE_TYPE: dict[str, str] = {
+    ".pdf": "pdf",
+    ".md": "markdown",
+    ".rst": "markdown",
+    ".xml": "xml",
+    ".xsd": "xml",
+    ".yaml": "openapi",
+    ".yml": "openapi",
+    ".json": "openapi",
+    ".py": "code",
+    ".js": "code",
+    ".ts": "code",
+    ".java": "code",
+    ".c": "code",
+    ".cpp": "code",
+    ".h": "code",
+    ".txt": "text",
+    ".text": "text",
+}
+
+
+def _auto_detect_file_type(filename: str) -> str:
+    return _EXT_TO_FILE_TYPE.get(Path(filename).suffix.lower(), "other")
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -104,43 +130,86 @@ def document_list(request):
 
 @analyst_required
 def document_upload(request):
-    if request.method == "POST":
-        title = request.POST.get("title", "").strip()
-        file_type = request.POST.get("file_type", Document.FileType.OTHER)
-        chunker = request.POST.get("chunker", "paragraph")
-        uploaded_file = request.FILES.get("file")
-        if not title or not uploaded_file:
-            messages.error(request, "Titel und Datei sind Pflichtfelder.")
-        else:
-            content = uploaded_file.read()
-            content_hash = hashlib.sha256(content).hexdigest()
-            uploaded_file.seek(0)
-            existing = Document.objects.filter(content_hash=content_hash).first()
-            if existing:
-                messages.warning(request, f'Dieses Dokument existiert bereits: „{existing.title}"')
-                return redirect("ui:document_detail", pk=existing.pk)
-            doc = Document.objects.create(
-                title=title,
-                file=uploaded_file,
-                file_type=file_type,
-                content_hash=content_hash,
-                metadata={"chunker": chunker} if chunker != "paragraph" else {},
-                created_by=request.user,
-            )
-            from ingestion.tasks import process_document
+    filetype_choices = Document.FileType.choices
+    chunker_choices = [
+        ("paragraph", "Absätze (Standard)"),
+        ("clause", "Klauseln (Verträge/RFC)"),
+    ]
 
-            process_document.delay(doc.id)
-            messages.success(request, f'„{doc.title}" wird verarbeitet.')
-            return redirect("ui:document_detail", pk=doc.pk)
+    if request.method == "POST":
+        mode = request.POST.get("mode", "single")
+        chunker = request.POST.get("chunker", "paragraph")
+        file_type = request.POST.get("file_type", Document.FileType.OTHER)
+
+        if mode == "batch":
+            uploaded_files = request.FILES.getlist("files")
+            if not uploaded_files:
+                messages.error(request, "Bitte mindestens eine Datei auswählen.")
+            else:
+                from ingestion.tasks import process_document
+
+                queued, skipped = 0, 0
+                for uploaded_file in uploaded_files:
+                    content = uploaded_file.read()
+                    content_hash = hashlib.sha256(content).hexdigest()
+                    uploaded_file.seek(0)
+                    if Document.objects.filter(content_hash=content_hash).exists():
+                        skipped += 1
+                        continue
+                    detected_type = _auto_detect_file_type(uploaded_file.name)
+                    title = Path(uploaded_file.name).stem.replace("_", " ").replace("-", " ")
+                    doc = Document.objects.create(
+                        title=title,
+                        file=uploaded_file,
+                        file_type=detected_type,
+                        content_hash=content_hash,
+                        metadata={"chunker": chunker} if chunker != "paragraph" else {},
+                        created_by=request.user,
+                    )
+                    process_document.delay(doc.id)
+                    queued += 1
+
+                parts = []
+                if queued:
+                    parts.append(f"{queued} Dokument{'e' if queued != 1 else ''} in die Warteschlange eingereiht")
+                if skipped:
+                    parts.append(f"{skipped} bereits vorhanden (übersprungen)")
+                messages.success(request, ". ".join(parts) + ".")
+                return redirect("ui:document_list")
+
+        else:  # single
+            title = request.POST.get("title", "").strip()
+            uploaded_file = request.FILES.get("file")
+            if not title or not uploaded_file:
+                messages.error(request, "Titel und Datei sind Pflichtfelder.")
+            else:
+                content = uploaded_file.read()
+                content_hash = hashlib.sha256(content).hexdigest()
+                uploaded_file.seek(0)
+                existing = Document.objects.filter(content_hash=content_hash).first()
+                if existing:
+                    messages.warning(request, f'Dieses Dokument existiert bereits: „{existing.title}"')
+                    return redirect("ui:document_detail", pk=existing.pk)
+                doc = Document.objects.create(
+                    title=title,
+                    file=uploaded_file,
+                    file_type=file_type,
+                    content_hash=content_hash,
+                    metadata={"chunker": chunker} if chunker != "paragraph" else {},
+                    created_by=request.user,
+                )
+                from ingestion.tasks import process_document
+
+                process_document.delay(doc.id)
+                messages.success(request, f'„{doc.title}" wird verarbeitet.')
+                return redirect("ui:document_detail", pk=doc.pk)
+
     return render(
         request,
         "ui/documents/upload.html",
         {
-            "filetype_choices": Document.FileType.choices,
-            "chunker_choices": [
-                ("paragraph", "Absätze (Standard)"),
-                ("clause", "Klauseln (Verträge/RFC)"),
-            ],
+            "filetype_choices": filetype_choices,
+            "chunker_choices": chunker_choices,
         },
     )
 
