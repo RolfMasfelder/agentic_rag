@@ -1,10 +1,19 @@
 import logging
+import re
 from collections.abc import Iterator
 
 import ollama
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+# Matches <think>...</think> blocks emitted by Qwen3/3.5 thinking models.
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
+def _strip_thinking(text: str) -> str:
+    """Remove <think>...</think> blocks and normalise surrounding whitespace."""
+    return _THINK_RE.sub("", text).strip()
 
 
 def _client() -> ollama.Client:
@@ -50,8 +59,10 @@ def chat(
 def _do_chat(model: str, messages: list[dict[str, str]]) -> str:
     response = _client().chat(model=model, messages=messages)
     if isinstance(response, dict):
-        return response["message"]["content"]
-    return response.message.content
+        content = response["message"]["content"]
+    else:
+        content = response.message.content
+    return _strip_thinking(content)
 
 
 def chat_stream(
@@ -84,8 +95,37 @@ def chat_stream(
 
 
 def _do_chat_stream(model: str, messages: list[dict[str, str]]) -> Iterator[str]:
+    inside_think = False
+    buf = ""
     for chunk in _client().chat(model=model, messages=messages, stream=True):
         if isinstance(chunk, dict):
-            yield chunk["message"]["content"]
+            piece = chunk["message"]["content"]
         else:
-            yield chunk.message.content
+            piece = chunk.message.content
+
+        if not piece:
+            continue
+
+        buf += piece
+        # Stream-safe stripping: buffer until we know whether we're inside a
+        # <think> block.  Flush safe text to the caller as soon as possible.
+        while buf:
+            if inside_think:
+                end = buf.find("</think>")
+                if end == -1:
+                    buf = ""  # discard thinking content, wait for more chunks
+                    break
+                buf = buf[end + len("</think>") :]
+                inside_think = False
+            else:
+                start = buf.find("<think>")
+                if start == -1:
+                    yield buf
+                    buf = ""
+                    break
+                if start > 0:
+                    yield buf[:start]
+                buf = buf[start + len("<think>") :]
+                inside_think = True
+    if buf and not inside_think:
+        yield buf

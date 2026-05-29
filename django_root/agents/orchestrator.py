@@ -57,6 +57,9 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
         {"role": "user", "content": user_query},
     ]
     plan: str = ""
+    tool_calls: int = 0
+    # Nudge threshold: after this many tool calls, remind the model to answer.
+    _nudge_after = max(2, max_iterations - 2)
 
     for iteration in range(max_iterations):
         trimmed = trim_conversation(conversation)
@@ -65,7 +68,7 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
 
         if response.startswith("PLAN:"):
             rest = response[len("PLAN:") :].strip()
-            # qwen2.5 sometimes packs PLAN + TOOL/ANSWER into a single response.
+            # qwen2.5/qwen3.5 sometimes packs PLAN + TOOL/ANSWER into a single response.
             # Extract the embedded directive so we don't discard the answer.
             if "ANSWER:" in rest:
                 idx = rest.index("ANSWER:")
@@ -82,10 +85,11 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
                 plan = rest[:idx].strip()
                 logger.info("Agent plan (inline tool): %s", plan)
                 tool_result = _execute_tool_call("TOOL:" + rest[idx + len("TOOL:") :])
+                tool_calls += 1
                 conversation.append(
                     {
                         "role": "user",
-                        "content": f"Tool result:\n{json.dumps(tool_result, ensure_ascii=False, default=str)}",
+                        "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
                     }
                 )
                 continue
@@ -103,10 +107,11 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
 
         if response.startswith("TOOL:"):
             tool_result = _execute_tool_call(response)
+            tool_calls += 1
             conversation.append(
                 {
                     "role": "user",
-                    "content": f"Tool result:\n{json.dumps(tool_result, ensure_ascii=False, default=str)}",
+                    "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
                 }
             )
         else:
@@ -125,6 +130,21 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
         "iterations": max_iterations,
         "conversation": conversation,
     }
+
+
+def _tool_result_message(tool_result: Any, tool_calls: int, nudge_after: int) -> str:
+    """Build the user message appended after a tool call.
+
+    After *nudge_after* tool calls we add a reminder so the model transitions
+    to ANSWER: instead of calling more tools indefinitely.
+    """
+    base = f"Tool result:\n{json.dumps(tool_result, ensure_ascii=False, default=str)}"
+    if tool_calls >= nudge_after:
+        base += (
+            "\n\nDu hast genug Informationen gesammelt. "
+            "Antworte jetzt auf die ursprüngliche Frage mit:\nANSWER: <deine Antwort>"
+        )
+    return base
 
 
 def _execute_tool_call(response: str) -> Any:
@@ -167,6 +187,8 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
         {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "user", "content": user_query},
     ]
+    tool_calls: int = 0
+    _nudge_after = max(2, max_iterations - 2)
 
     for iteration in range(max_iterations):
         trimmed = trim_conversation(conversation)
@@ -221,10 +243,11 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                 logger.info("Agent plan (inline tool): %s", plan_text)
                 yield {"type": "plan", "content": plan_text}
                 tool_result = _execute_tool_call("TOOL:" + rest[idx + len("TOOL:") :])
+                tool_calls += 1
                 conversation.append(
                     {
                         "role": "user",
-                        "content": f"Tool result:\n{json.dumps(tool_result, ensure_ascii=False, default=str)}",
+                        "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
                     }
                 )
                 yield {"type": "tool_result", "content": tool_result}
@@ -245,10 +268,11 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                 tool_name = response
             yield {"type": "tool_call", "tool": tool_name.strip(), "args": raw_args}
             tool_result = _execute_tool_call(response)
+            tool_calls += 1
             conversation.append(
                 {
                     "role": "user",
-                    "content": f"Tool result:\n{json.dumps(tool_result, ensure_ascii=False, default=str)}",
+                    "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
                 }
             )
             yield {"type": "tool_result", "content": tool_result}
