@@ -117,8 +117,7 @@ Container bauen → DB/Redis starten → Migrationen → Demo-Daten laden → al
 ./docker/build-docker.sh --no-seed   # Demo-Daten überspringen
 ```
 
-<details>
-<summary>Manuelle Schritte (ohne Skript)</summary>
+**Manuelle Schritte (ohne Skript):**
 
 ```bash
 docker compose -f docker/docker-compose.yml --env-file .env build
@@ -129,8 +128,6 @@ docker compose -f docker/docker-compose.yml --env-file .env up -d
 ```
 
 Das `seed_data`-Command ist **idempotent** – es kann nach jedem Container-Neubau erneut ausgeführt werden, ohne Duplikate zu erzeugen.
-
-</details>
 
 #### Demo-Benutzer
 
