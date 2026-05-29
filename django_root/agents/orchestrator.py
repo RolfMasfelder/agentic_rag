@@ -64,7 +64,32 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
         conversation.append({"role": "assistant", "content": response})
 
         if response.startswith("PLAN:"):
-            plan = response[len("PLAN:") :].strip()
+            rest = response[len("PLAN:") :].strip()
+            # qwen2.5 sometimes packs PLAN + TOOL/ANSWER into a single response.
+            # Extract the embedded directive so we don't discard the answer.
+            if "ANSWER:" in rest:
+                idx = rest.index("ANSWER:")
+                plan = rest[:idx].strip()
+                logger.info("Agent plan (inline answer): %s", plan)
+                return {
+                    "answer": rest[idx + len("ANSWER:") :].strip(),
+                    "plan": plan,
+                    "iterations": iteration + 1,
+                    "conversation": conversation,
+                }
+            if "TOOL:" in rest:
+                idx = rest.index("TOOL:")
+                plan = rest[:idx].strip()
+                logger.info("Agent plan (inline tool): %s", plan)
+                tool_result = _execute_tool_call("TOOL:" + rest[idx + len("TOOL:") :])
+                conversation.append(
+                    {
+                        "role": "user",
+                        "content": f"Tool result:\n{json.dumps(tool_result, ensure_ascii=False, default=str)}",
+                    }
+                )
+                continue
+            plan = rest
             logger.info("Agent plan: %s", plan)
             continue  # proceed to first TOOL: call
 
@@ -180,7 +205,31 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
             return
 
         if response.startswith("PLAN:"):
-            plan_text = response[len("PLAN:") :].strip()
+            rest = response[len("PLAN:") :].strip()
+            if "ANSWER:" in rest:
+                idx = rest.index("ANSWER:")
+                plan_text = rest[:idx].strip()
+                logger.info("Agent plan (inline answer): %s", plan_text)
+                answer_text = rest[idx + len("ANSWER:") :].strip()
+                yield {"type": "plan", "content": plan_text}
+                yield {"type": "answer_chunk", "content": answer_text}
+                yield {"type": "done", "iterations": iteration + 1}
+                return
+            if "TOOL:" in rest:
+                idx = rest.index("TOOL:")
+                plan_text = rest[:idx].strip()
+                logger.info("Agent plan (inline tool): %s", plan_text)
+                yield {"type": "plan", "content": plan_text}
+                tool_result = _execute_tool_call("TOOL:" + rest[idx + len("TOOL:") :])
+                conversation.append(
+                    {
+                        "role": "user",
+                        "content": f"Tool result:\n{json.dumps(tool_result, ensure_ascii=False, default=str)}",
+                    }
+                )
+                yield {"type": "tool_result", "content": tool_result}
+                continue
+            plan_text = rest
             logger.info("Agent plan: %s", plan_text)
             yield {"type": "plan", "content": plan_text}
             continue
