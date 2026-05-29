@@ -7,12 +7,26 @@
     <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
     <p class="text-sm text-gray-500 mt-0.5">Willkommen, {{ request.user.username }}</p>
   </div>
-  {% if request.user.role in "admin analyst" %}
-  <a href="{% url 'ui:document_upload' %}"
-     class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors">
-    <span>+</span> Dokument hochladen
-  </a>
-  {% endif %}
+  <div class="flex items-center gap-3">
+    {% if request.user.role in "admin analyst" %}
+    <a href="{% url 'ui:document_upload' %}"
+       class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors">
+      <span>+</span> Dokument hochladen
+    </a>
+    {% endif %}
+    {% if request.user.role == "admin" %}
+    <form method="post" action="{% url 'ui:admin_reembed' %}"
+          x-data
+          @submit.prevent="if(confirm('Re-Embedding für alle Chunks ohne Embedding starten?')) $el.submit()">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm px-4 py-2 rounded-lg font-medium transition-colors"
+              title="Erzeugt fehlende Embeddings für alle READY-Dokumente">
+        ⚡ Re-Embedding
+      </button>
+    </form>
+    {% endif %}
+  </div>
 </div>
 
 <!-- Stats & Recent docs (HTMX auto-refresh every 5 s) -->

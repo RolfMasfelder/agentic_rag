@@ -7,45 +7,97 @@
   <p class="text-sm text-gray-500 mt-1">Der Agent durchsucht die Wissensbasis und beantwortet deine Frage.</p>
 </div>
 
-<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl mb-6">
-  <form id="agent-form"
-        hx-post="{% url 'ui:agent_query' %}"
-        hx-target="#agent-result"
-        hx-swap="innerHTML"
-        hx-indicator="#agent-spinner"
-        class="space-y-4">
-    {% csrf_token %}
-    <div>
-      <label for="id_question" class="block text-sm font-medium text-gray-700 mb-1">Deine Frage</label>
-      <textarea name="question" id="id_question" rows="4" required
-                placeholder="Was möchtest du wissen? z.B.: Erkläre den OAuth2 Authorization Code Flow."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400">{{ question }}</textarea>
+<div class="flex gap-6 items-start">
+  <!-- Main content -->
+  <div class="flex-1 min-w-0">
+    <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+      <form id="agent-form"
+            hx-post="{% url 'ui:agent_query' %}"
+            hx-target="#agent-result"
+            hx-swap="innerHTML"
+            hx-indicator="#agent-spinner"
+            class="space-y-4">
+        {% csrf_token %}
+        <div>
+          <label for="id_question" class="block text-sm font-medium text-gray-700 mb-1">Deine Frage</label>
+          <textarea name="question" id="id_question" rows="4" required
+                    placeholder="Was möchtest du wissen? z.B.: Erkläre den OAuth2 Authorization Code Flow."
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400">{{ question }}</textarea>
+        </div>
+        <div class="flex items-center gap-3">
+          <button type="submit"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+            Fragen
+          </button>
+          <div id="agent-spinner" class="htmx-indicator flex items-center gap-2 text-sm text-gray-500">
+            <svg class="animate-spin h-4 w-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Agent arbeitet…
+          </div>
+        </div>
+      </form>
     </div>
-    <div class="flex items-center gap-3">
-      <button type="submit"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
-        Fragen
-      </button>
-      <div id="agent-spinner" class="htmx-indicator flex items-center gap-2 text-sm text-gray-500">
-        <svg class="animate-spin h-4 w-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-        </svg>
-        Agent arbeitet…
-      </div>
-    </div>
-  </form>
-</div>
 
-<!-- Result area -->
-<div id="agent-result">
-  {% if result or error %}
-  {% include "ui/agent/query_result.html" %}
+    <!-- Result area -->
+    <div id="agent-result">
+      {% if result or error %}
+      {% include "ui/agent/query_result.html" %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- History sidebar -->
+  {% if query_history %}
+  <aside class="w-72 shrink-0">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
+        <h2 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Verlauf dieser Session</h2>
+        <form method="post" action="{% url 'ui:agent_clear_history' %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                  title="Verlauf löschen">✕</button>
+        </form>
+      </div>
+      <ul class="divide-y divide-gray-100" id="query-history-list">
+        {% for item in query_history %}
+        <li class="p-3 hover:bg-gray-50 transition-colors">
+          <button type="button"
+                  class="w-full text-left group history-item"
+                  data-question="{{ item.question|escapejs }}">
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <span class="text-xs font-medium text-gray-700 leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                {{ item.question|truncatechars:80 }}
+              </span>
+              <span class="text-xs text-gray-400 shrink-0">{{ item.ts }}</span>
+            </div>
+            {% if item.answer_excerpt %}
+            <p class="text-xs text-gray-400 leading-snug truncate">{{ item.answer_excerpt }}</p>
+            {% endif %}
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </aside>
   {% endif %}
 </div>
 
 <style>
   #agent-spinner { display: none; }
   .htmx-request #agent-spinner { display: flex; }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>
+
+<script>
+document.querySelectorAll('.history-item').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var textarea = document.getElementById('id_question');
+    textarea.value = btn.dataset.question;
+    textarea.focus();
+  });
+});
+</script>
 {% endblock %}

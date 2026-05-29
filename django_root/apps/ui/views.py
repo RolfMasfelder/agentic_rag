@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
@@ -260,6 +261,7 @@ def agent_query(request):
     result = None
     question = ""
     error = None
+    history: list[dict] = request.session.get("query_history", [])
     if request.method == "POST":
         question = request.POST.get("question", "").strip()
         if question:
@@ -270,6 +272,16 @@ def agent_query(request):
             except Exception as exc:
                 logger.exception("Agent query failed.")
                 error = str(exc)
+        if result and not error:
+            answer_excerpt = (result.get("answer") or "")[:120]
+            history = [
+                {
+                    "question": question,
+                    "answer_excerpt": answer_excerpt,
+                    "ts": datetime.now().strftime("%H:%M"),
+                }
+            ] + history[:9]
+            request.session["query_history"] = history
         if request.headers.get("HX-Request"):
             return render(
                 request,
@@ -279,8 +291,16 @@ def agent_query(request):
     return render(
         request,
         "ui/agent/query.html",
-        {"result": result, "question": question, "error": error},
+        {"result": result, "question": question, "error": error, "query_history": history},
     )
+
+
+@login_required
+def agent_clear_history(request):
+    """POST-only: clear the query history stored in the session."""
+    if request.method == "POST":
+        request.session.pop("query_history", None)
+    return redirect("ui:agent_query")
 
 
 # ── Search ────────────────────────────────────────────────────────────────────
@@ -320,3 +340,19 @@ def search(request):
     if request.headers.get("HX-Request"):
         return render(request, "ui/search/results.html", ctx)
     return render(request, "ui/search/index.html", ctx)
+
+
+# ── Admin actions ──────────────────────────────────────────────────────────────
+
+
+@login_required
+def admin_reembed(request):
+    """POST-only: queue a Celery task to generate missing embeddings (admin only)."""
+    if request.user.role != "admin":
+        return render(request, "ui/403.html", status=403)
+    if request.method == "POST":
+        from ingestion.tasks import reembed_documents
+
+        reembed_documents.delay()
+        messages.success(request, "Re-Embedding-Task wurde gestartet.")
+    return redirect("ui:dashboard")
