@@ -85,8 +85,10 @@ $COMPOSE up -d db redis
 info "Warte auf Healthchecks (DB + Redis)…"
 RETRIES=30
 for i in $(seq 1 $RETRIES); do
-  DB_HEALTH=$($COMPOSE ps db --format json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0].get('Health',''))" 2>/dev/null || echo "unknown")
-  REDIS_HEALTH=$($COMPOSE ps redis --format json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0].get('Health',''))" 2>/dev/null || echo "unknown")
+  DB_ID=$($COMPOSE ps -q db 2>/dev/null || true)
+  REDIS_ID=$($COMPOSE ps -q redis 2>/dev/null || true)
+  DB_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$DB_ID" 2>/dev/null || echo "unknown")
+  REDIS_HEALTH=$(docker inspect --format='{{.State.Health.Status}}' "$REDIS_ID" 2>/dev/null || echo "unknown")
   if [[ "$DB_HEALTH" == "healthy" && "$REDIS_HEALTH" == "healthy" ]]; then
     success "DB und Redis sind bereit."
     break
