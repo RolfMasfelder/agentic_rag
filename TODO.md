@@ -1,6 +1,6 @@
 # TODO – Hybrid Agentic RAG System
 
-Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-28.
+Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-29.
 
 ---
 
@@ -85,41 +85,43 @@ Stack: Django 5.2 Templates · HTMX 2.x · Alpine.js 3.x · Tailwind CSS v4 (CDN
 
 ### 11.1 Grundgerüst
 
-- [ ] **`apps/ui`-App anlegen** – `python manage.py startapp ui`; in `INSTALLED_APPS` eintragen
-- [ ] **Base-Template** – `templates/ui/base.html`; CDN-Links für Tailwind, HTMX, Alpine; Nav-Bar mit Login-Status
-- [ ] **URL-Routing** – `apps/ui/urls.py`; in `config/urls.py` einbinden (Prefix `/ui/`)
-- [ ] **Login / Logout** – Django-Auth-Views einbinden (`/ui/login/`, `/ui/logout/`); Login-Template auf Basis von `base.html`
-- [ ] **Session-basierte Auth für UI** – Django-Session-Authentication für alle UI-Views (kein Token nötig)
+- [x] **`apps/ui`-App anlegen** – `apps/ui/` mit Views, URLs, Templates; in `INSTALLED_APPS` eingetragen
+- [x] **Base-Template** – `templates/ui/base.html`; CDN-Links für Tailwind, HTMX, Alpine; Nav-Bar mit Login-Status und Rollen-Badge
+- [x] **URL-Routing** – `apps/ui/urls.py`; in `config/urls.py` eingebunden (Prefix `/ui/`)
+- [x] **Login / Logout** – Django-Auth-Views; `/ui/login/`, `/ui/logout/`; Login-Template auf Basis von `base.html`
+- [x] **Session-basierte Auth für UI** – Django-Session-Authentication; Rollen-Decorator `analyst_required` für schreibende Views
 
 ### 11.2 Dashboard
 
-- [ ] **Dashboard-View** – `GET /ui/` → Übersicht: Anzahl Dokumente gesamt / READY / PROCESSING / FAILED
-- [ ] **Embedding-Status-Widget** – Anteil Chunks mit Embedding, Prozentanzeige (Fortschrittsbalken)
-- [ ] **Aktive Celery-Tasks** – HTMX-Auto-Refresh alle 5 s; zeigt laufende `process_document`-Tasks (via Celery `inspect`)
-- [ ] **Letzten Ingestions-Log** – Letzte 10 verarbeiteten Dokumente mit Status und Zeitstempel
+- [x] **Dashboard-View** – `GET /ui/` → Übersicht: Anzahl Dokumente gesamt / READY / PROCESSING / FAILED / PENDING
+- [x] **Embedding-Status-Widget** – Anteil Chunks mit Embedding, Prozentanzeige (Fortschrittsbalken)
+- [x] **Aktive Celery-Tasks** – HTMX-Auto-Refresh alle 5 s; zeigt laufende `process_document`-Tasks (via Celery `inspect`)
+- [x] **Letzten Ingestions-Log** – Letzte 8 verarbeiteten Dokumente mit Status und Zeitstempel
 
 ### 11.3 Dokument-Verwaltung
 
-- [ ] **Dokumentliste** – `GET /ui/documents/`; Tabelle mit Filter (Datei-Typ, Status), Pagination
-- [ ] **Upload-Formular** – Drag & Drop, Datei-Typ-Auswahl, optionale Metadaten (chunker-Auswahl); `POST` löst Celery-Task aus
-- [ ] **Upload-Fortschritt** – HTMX-Polling nach Upload: Status PROCESSING → READY/FAILED mit Badge-Aktualisierung
-- [ ] **Dokument-Detailseite** – Chunk-Liste, Embedding-Status, Metadaten; Link zu verknüpften Dokumenten
-- [ ] **Dokument löschen** – `DELETE` via HTMX mit Bestätigungs-Dialog (Alpine.js)
+- [x] **Dokumentliste** – `GET /ui/documents/`; Tabelle mit Filter (Datei-Typ, Status), Pagination (20 pro Seite)
+- [x] **Upload-Formular (Einzeldatei)** – Datei-Typ-Auswahl, Chunker-Auswahl; `POST` löst Celery-Task aus; Duplikat-Erkennung per SHA-256
+- [x] **Batch-Upload** – Tab „Batch": Multi-Select oder Verzeichnis (`webkitdirectory`); Titel + Typ automatisch aus Dateinamen erkannt; Duplikate werden übersprungen
+- [x] **Upload-Fortschritt** – HTMX-Polling nach Upload: Status PROCESSING → READY/FAILED mit Badge-Aktualisierung
+- [x] **Dokument-Detailseite** – Chunk-Liste (erste 50), Embedding-Status pro Chunk, Embedding-Abdeckungs-Fortschrittsbalken, Metadaten
+- [x] **Dokument löschen** – `POST /ui/documents/<pk>/delete/` mit Bestätigungs-Template; Rollen-Schutz (analyst/admin)
+- [x] **Fehleranzeige bei FAILED** – `Document.error_message`-Feld; rote Warnbox in Detailansicht + gekürzte Fehlermeldung in der Liste
 
 ### 11.4 Agent-Query-Interface
 
-- [ ] **Query-Formular** – Freitext-Eingabe + Absenden-Button; HTMX-POST an `/api/agent/query/`
-- [ ] **Antwort-Anzeige** – Answer-Text, Plan-Schritte, Tool-Calls als aufklappbare Akkordeons (Alpine.js)
-- [ ] **Streaming-Antwort** – SSE-Verbindung zu `/api/agent/stream/`; Chunks werden live in die Seite gestreamt
+- [x] **Query-Formular** – Freitext-Eingabe + Absenden-Button; HTMX-POST an `/api/agent/query/`
+- [x] **Antwort-Anzeige** – Answer-Text, Plan-Schritte, Tool-Calls als aufklappbare Akkordeons (Alpine.js)
+- [x] **Streaming-Antwort** – SSE-Verbindung zu `/api/agent/stream/`; Chunks werden live in die Seite gestreamt
 - [ ] **Query-Historie** – Letzte Anfragen der Session in der Sidebar anzeigen
 
 ### 11.5 Suche
 
-- [ ] **Suchmaske** – Freitext + Modus-Auswahl (hybrid / vector / fulltext / metadata); HTMX-GET an `/api/search/`
-- [ ] **Ergebnisliste** – Chunk-Text, Score, Dokument-Titel, Treffer-Highlight
+- [x] **Suchmaske** – Freitext + Modus-Auswahl (hybrid / vector / fulltext / metadata); HTMX-GET an `/api/search/`
+- [x] **Ergebnisliste** – Chunk-Text, Score, Dokument-Titel, Treffer-Highlight
 
 ### 11.6 Abschluss
 
 - [ ] **`reembed_documents`-Trigger** – Admin-only Button im Dashboard startet Management-Command via Celery-Task
-- [ ] **Fehler-Seiten** – 403-, 404-, 500-Templates auf Basis von `base.html`
+- [x] **Fehler-Seiten** – 403-Template vorhanden (`templates/ui/403.html`); 404/500 noch offen
 - [ ] **Tests** – View-Tests für Dashboard, Upload, Query (mit Login-Fixture; kein Selenium nötig)
