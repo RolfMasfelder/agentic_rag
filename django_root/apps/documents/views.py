@@ -3,6 +3,7 @@ import logging
 
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -24,12 +25,15 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(tags=["documents"])
 class DocumentViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["file_type", "status"]
     permission_classes = [IsAuthenticated, IsAnalystOrAbove, IsOwnerOrAdmin]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Document.objects.none()
         user = self.request.user
         if user.role == "admin":
             return Document.objects.all()
@@ -48,6 +52,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             file.seek(0)
         serializer.save(created_by=self.request.user, content_hash=content_hash)
 
+    @extend_schema(operation_id="documents_document_relations", tags=["documents"])
     @action(detail=True, methods=["get"])
     def relations(self, request, pk=None):
         document = self.get_object()
@@ -117,6 +122,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         return Response({"created": created, "errors": errors}, status=response_status)
 
 
+@extend_schema(tags=["documents"])
 class DocumentRelationViewSet(viewsets.ModelViewSet):
     """CRUD for DocumentRelation.
 
@@ -132,6 +138,8 @@ class DocumentRelationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return DocumentRelation.objects.none()
         user = self.request.user
         if user.role == "admin":
             return DocumentRelation.objects.select_related("source_document", "target_document").all()
@@ -153,6 +161,7 @@ class DocumentRelationViewSet(viewsets.ModelViewSet):
         serializer.save(created_by=user.username)
 
 
+@extend_schema(tags=["documents"])
 class AnalysisResultViewSet(viewsets.ModelViewSet):
     """CRUD for AnalysisResult.
 
@@ -170,6 +179,8 @@ class AnalysisResultViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAnalystOrAbove]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return AnalysisResult.objects.none()
         user = self.request.user
         if user.role == "admin":
             return AnalysisResult.objects.select_related("document").all()

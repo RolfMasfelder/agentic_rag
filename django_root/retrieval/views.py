@@ -1,7 +1,8 @@
 import json
 import logging
 
-from rest_framework import status
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,6 +10,26 @@ from rest_framework.views import APIView
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(
+    tags=["retrieval"],
+    parameters=[
+        OpenApiParameter("q", str, description="Suchbegriff (erforderlich für hybrid/vector/fulltext)"),
+        OpenApiParameter("mode", str, enum=["hybrid", "vector", "fulltext", "metadata"], default="hybrid"),
+        OpenApiParameter("limit", int, description="Max. Treffer (default: 10, max: 100)"),
+        OpenApiParameter("document_ids", str, description="Kommaseparierte Dokument-IDs"),
+        OpenApiParameter("filters", str, description="JSON-Objekt für metadata-Modus"),
+    ],
+    responses={
+        200: inline_serializer(
+            name="SearchResponse",
+            fields={
+                "results": serializers.ListField(child=serializers.DictField()),
+                "mode": serializers.CharField(),
+                "count": serializers.IntegerField(),
+            },
+        )
+    },
+)
 class SearchView(APIView):
     """GET /api/search/
 
