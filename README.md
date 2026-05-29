@@ -106,26 +106,44 @@ cp .env.example .env
 ### 2. Container bauen und starten
 
 ```bash
+./docker/build-docker.sh
+```
+
+Das Skript führt alle Schritte automatisch in der richtigen Reihenfolge aus:
+Container bauen → DB/Redis starten → Migrationen → Demo-Daten laden → alle Services starten.
+
+```bash
+./docker/build-docker.sh --fresh     # ohne Build-Cache (nach Dependency-Änderungen)
+./docker/build-docker.sh --no-seed   # Demo-Daten überspringen
+```
+
+**Manuelle Schritte (ohne Skript):**
+
+```bash
 docker compose -f docker/docker-compose.yml --env-file .env build
 docker compose -f docker/docker-compose.yml --env-file .env up -d db redis
-```
-
-### 3. Datenbank initialisieren
-
-```bash
 docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py migrate
-docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py createsuperuser
+docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py seed_data
+docker compose -f docker/docker-compose.yml --env-file .env up -d
 ```
 
-### 4. System starten
+Das `seed_data`-Command ist **idempotent** – es kann nach jedem Container-Neubau erneut ausgeführt werden, ohne Duplikate zu erzeugen.
+
+#### Demo-Benutzer
+
+| Benutzername | Passwort    | Rolle    | Rechte                          |
+|--------------|-------------|----------|---------------------------------|
+| `admin`      | `admin123`  | admin    | alles + Django-Admin (`/admin/`)|
+| `analyst`    | `analyst123`| analyst  | Dokumente hochladen & löschen   |
+| `viewer`     | `viewer123` | viewer   | nur lesen & suchen              |
+
+> **Hinweis:** Diese Passwörter sind ausschließlich für lokale Entwicklung und Tests gedacht.  Niemals in Produktionsumgebungen verwenden.
+
+### 3. System stoppen
 
 ```bash
-docker compose -f docker/docker-compose.yml --env-file .env up
+docker compose -f docker/docker-compose.yml --env-file .env down
 ```
-
-Erreichbar unter:
-- Django-Backend: http://localhost:8000
-- Django-Admin: http://localhost:8000/admin
 
 > **Hinweis:** Ollama läuft auf einem separaten Rechner. `OLLAMA_BASE_URL` in `.env` entsprechend setzen.
 

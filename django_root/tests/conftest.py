@@ -19,6 +19,7 @@ def user(db):
         username="testuser",
         password="testpass123",
         email="test@example.com",
+        role="analyst",
     )
 
 

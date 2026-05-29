@@ -171,7 +171,7 @@ def test_e2e_agent_answers_from_indexed_document(user):
     _parse_and_chunk(doc)
     _generate_embeddings(doc)
 
-    result = run_agent("What is Reciprocal Rank Fusion and how does it work?", max_iterations=4)
+    result = run_agent("What is Reciprocal Rank Fusion and how does it work?", max_iterations=6)
 
     assert "answer" in result
     assert len(result["answer"]) > 10

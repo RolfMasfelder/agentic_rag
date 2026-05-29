@@ -2,7 +2,8 @@ import json
 import logging
 
 from django.http import StreamingHttpResponse
-from rest_framework import status
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,6 +11,36 @@ from rest_framework.views import APIView
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(
+    tags=["agent"],
+    request=inline_serializer(
+        name="AgentQueryRequest",
+        fields={
+            "query": serializers.CharField(),
+            "max_iterations": serializers.IntegerField(default=5, required=False),
+            "async": serializers.BooleanField(default=False, required=False),
+        },
+    ),
+    responses={
+        200: inline_serializer(
+            name="AgentQueryResponse",
+            fields={
+                "answer": serializers.CharField(),
+                "plan": serializers.CharField(),
+                "iterations": serializers.IntegerField(),
+                "sources": serializers.ListField(child=serializers.DictField()),
+            },
+        ),
+        202: inline_serializer(
+            name="AgentQueryAsyncResponse",
+            fields={
+                "task_id": serializers.CharField(),
+                "status": serializers.CharField(),
+                "poll_url": serializers.CharField(),
+            },
+        ),
+    },
+)
 class AgentQueryView(APIView):
     """POST /api/agent/query/
 
@@ -123,6 +154,17 @@ def _extract_sources(conversation: list[dict]) -> list[dict]:
     return sources
 
 
+@extend_schema(
+    tags=["agent"],
+    request=inline_serializer(
+        name="AgentStreamRequest",
+        fields={
+            "query": serializers.CharField(),
+            "max_iterations": serializers.IntegerField(default=5, required=False),
+        },
+    ),
+    responses={200: OpenApiResponse(description="Server-Sent Events stream (text/event-stream)")},
+)
 class AgentStreamView(APIView):
     """POST /api/agent/stream/ – Server-Sent Events (SSE) streaming endpoint.
 

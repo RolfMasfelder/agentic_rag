@@ -24,6 +24,7 @@ class Document(models.Model):
     file_type = models.CharField(max_length=20, choices=FileType.choices, default=FileType.OTHER)
     content_hash = models.CharField(max_length=64, unique=True, db_index=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    error_message = models.TextField(blank=True, default="")
     metadata = models.JSONField(default=dict, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

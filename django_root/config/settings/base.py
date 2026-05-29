@@ -27,7 +27,9 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "rest_framework.authtoken",
     "django_filters",
+    "drf_spectacular",
 ]
 
 LOCAL_APPS = [
@@ -35,7 +37,12 @@ LOCAL_APPS = [
     "apps.documents",
     "apps.audit",
     "apps.agent",
+    "apps.ui",
 ]
+
+LOGIN_URL = "/ui/login/"
+LOGIN_REDIRECT_URL = "/ui/"
+LOGOUT_REDIRECT_URL = "/ui/login/"
 
 # Agent settings
 AGENT_MAX_CONTEXT_TOKENS = env.int("AGENT_MAX_CONTEXT_TOKENS", default=6_000)
@@ -123,6 +130,7 @@ EMBEDDING_DIM = env.int("EMBEDDING_DIM", default=768)
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -132,6 +140,30 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Hybrid Agentic RAG API",
+    "DESCRIPTION": (
+        "REST API für das lokale KI-gestützte Analyse- und Retrieval-System. "
+        "Authentifizierung: Token (Header `Authorization: Token <token>`) "
+        "oder Session."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SORT_OPERATIONS": True,
+    "TAGS": [
+        {"name": "auth", "description": "Token-Authentifizierung"},
+        {"name": "documents", "description": "Dokumentenverwaltung und -verarbeitung"},
+        {"name": "retrieval", "description": "Semantische und Volltext-Suche"},
+        {"name": "agent", "description": "Agentische Abfragen (Tool-Calling-Loop)"},
+    ],
+    "ENUM_NAME_OVERRIDES": {
+        "DocumentStatusEnum": "apps.documents.models.Document.Status",
+        "AgentTaskStatusEnum": "apps.agent.models.AgentTask.Status",
+    },
 }
 
 # Logging

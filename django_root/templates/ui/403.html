@@ -1,0 +1,17 @@
+{% extends "ui/base.html" %}
+{% block title %}Zugriff verweigert – Agentic RAG{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto mt-16 text-center">
+  <div class="text-5xl mb-4">🔒</div>
+  <h1 class="text-2xl font-bold text-gray-900 mb-2">Zugriff verweigert</h1>
+  <p class="text-sm text-gray-600 mb-6">
+    Du besitzt nicht die erforderliche Berechtigung für diese Aktion.<br>
+    Mindestens die Rolle <strong>Analyst</strong> ist erforderlich.
+  </p>
+  <a href="{% url 'ui:dashboard' %}"
+     class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+    Zurück zum Dashboard
+  </a>
+</div>
+{% endblock %}

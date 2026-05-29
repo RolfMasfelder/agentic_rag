@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full bg-gray-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Agentic RAG{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+</head>
+<body class="h-full flex flex-col font-sans antialiased"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+  <!-- Navigation -->
+  <nav class="bg-indigo-700 text-white shadow-md flex-shrink-0">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-14">
+        <div class="flex items-center gap-6">
+          <a href="{% url 'ui:dashboard' %}" class="font-bold text-base tracking-tight flex items-center gap-2">
+            <span class="text-lg">🔍</span> Agentic RAG
+          </a>
+          <div class="flex gap-1 text-sm">
+            <a href="{% url 'ui:dashboard' %}"
+               class="px-3 py-1.5 rounded {% if '/ui/' == request.path %}bg-indigo-900 font-medium{% elif request.path == '/ui/' %}bg-indigo-900 font-medium{% else %}hover:bg-indigo-600{% endif %}">
+              Dashboard
+            </a>
+            <a href="{% url 'ui:document_list' %}"
+               class="px-3 py-1.5 rounded {% if '/ui/documents' in request.path %}bg-indigo-900 font-medium{% else %}hover:bg-indigo-600{% endif %}">
+              Dokumente
+            </a>
+            <a href="{% url 'ui:agent_query' %}"
+               class="px-3 py-1.5 rounded {% if '/ui/agent' in request.path %}bg-indigo-900 font-medium{% else %}hover:bg-indigo-600{% endif %}">
+              Agent
+            </a>
+            <a href="{% url 'ui:search' %}"
+               class="px-3 py-1.5 rounded {% if '/ui/search' in request.path %}bg-indigo-900 font-medium{% else %}hover:bg-indigo-600{% endif %}">
+              Suche
+            </a>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <span class="text-indigo-200">{{ request.user.username }}</span>
+          <span class="bg-indigo-500 px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide">{{ request.user.role }}</span>
+          <a href="{% url 'ui:logout' %}" class="bg-indigo-800 hover:bg-indigo-600 px-3 py-1 rounded text-xs">Abmelden</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Flash messages -->
+  {% if messages %}
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 w-full space-y-2">
+    {% for msg in messages %}
+    <div x-data="{ show: true }" x-show="show" x-transition.duration.200ms
+         class="flex items-start justify-between px-4 py-3 rounded-lg border text-sm
+           {% if msg.tags == 'error' %}bg-red-50 text-red-800 border-red-200
+           {% elif msg.tags == 'warning' %}bg-yellow-50 text-yellow-800 border-yellow-200
+           {% elif msg.tags == 'success' %}bg-green-50 text-green-800 border-green-200
+           {% else %}bg-blue-50 text-blue-800 border-blue-200{% endif %}">
+      <span>{{ msg }}</span>
+      <button @click="show = false" class="ml-4 opacity-50 hover:opacity-100 text-base leading-none">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Page content -->
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-200 bg-white flex-shrink-0">
+    <div class="max-w-7xl mx-auto px-4 py-2 text-center text-xs text-gray-400">
+      Agentic RAG &middot; Django 5.2 &middot; HTMX &middot; Tailwind CSS
+    </div>
+  </footer>
+
+  <!-- HTMX loading indicator (top bar) -->
+  <style>
+    #htmx-indicator {
+      position: fixed; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #6366f1, #a5b4fc);
+      opacity: 0; transition: opacity 200ms; z-index: 9999;
+    }
+    .htmx-request #htmx-indicator,
+    .htmx-request.htmx-indicator { opacity: 1; }
+  </style>
+  <div id="htmx-indicator"></div>
+
+</body>
+</html>

@@ -1,0 +1,69 @@
+{% extends "ui/base.html" %}
+{% block title %}Suche – Agentic RAG{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Volltextsuche</h1>
+  <p class="text-sm text-gray-500 mt-1">Durchsuche alle Dokumente in der Wissensbasis.</p>
+</div>
+
+<!-- Search form -->
+<div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+  <form id="search-form"
+        hx-get="{% url 'ui:search' %}"
+        hx-target="#search-results"
+        hx-swap="innerHTML"
+        hx-indicator="#search-spinner"
+        hx-push-url="true"
+        class="space-y-4">
+    <div class="flex gap-3">
+      <input type="text" name="q" id="id_q" value="{{ q }}" required
+             placeholder="Suchbegriff eingeben…"
+             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+      <button type="submit"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+        Suchen
+      </button>
+    </div>
+
+    <!-- Mode selection -->
+    <div class="flex flex-wrap gap-4 text-sm" x-data>
+      <label class="flex items-center gap-1.5 cursor-pointer">
+        <input type="radio" name="mode" value="hybrid" {% if mode == "hybrid" %}checked{% endif %}
+               class="text-indigo-600">
+        <span>Hybrid <span class="text-xs text-gray-400">(empfohlen)</span></span>
+      </label>
+      <label class="flex items-center gap-1.5 cursor-pointer">
+        <input type="radio" name="mode" value="vector" {% if mode == "vector" %}checked{% endif %}
+               class="text-indigo-600">
+        <span>Semantisch</span>
+      </label>
+      <label class="flex items-center gap-1.5 cursor-pointer">
+        <input type="radio" name="mode" value="fulltext" {% if mode == "fulltext" %}checked{% endif %}
+               class="text-indigo-600">
+        <span>Volltext</span>
+      </label>
+    </div>
+
+    <div id="search-spinner" class="htmx-indicator flex items-center gap-2 text-sm text-gray-500">
+      <svg class="animate-spin h-4 w-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      Suche läuft…
+    </div>
+  </form>
+</div>
+
+<style>
+  #search-spinner { display: none; }
+  .htmx-request #search-spinner { display: flex; }
+</style>
+
+<!-- Results -->
+<div id="search-results">
+  {% if q %}
+  {% include "ui/search/results.html" %}
+  {% endif %}
+</div>
+{% endblock %}

@@ -48,9 +48,9 @@ Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-28.
 
 ## 7. Sicherheit & Berechtigungen
 
-- [ ] **Rollen-Enforcement** – `ADMIN/ANALYST/VIEWER`-Rollen vorhanden, aber DRF-Permissions prüfen nicht die Rolle
-- [ ] **Objekt-Level-Permissions** – Nutzer soll nur eigene Dokumente sehen/bearbeiten können (oder Admin alle)
-- [ ] **Token-Authentifizierung** – Für API-Clients ohne Session (DRF `TokenAuthentication` oder JWT)
+- [x] **Rollen-Enforcement** – `IsAnalystOrAbove`-Permission in `apps/users/permissions.py`; VIEWER darf nur lesen, ANALYST/ADMIN dürfen schreiben
+- [x] **Objekt-Level-Permissions** – `IsOwnerOrAdmin` für `DocumentViewSet`; `get_queryset()` filtert alle drei ViewSets auf eigene Dokumente (nicht-ADMIN sieht/bearbeitet nur eigene); `perform_create` prüft Eigentümerschaft für Relations und AnalysisResults
+- [x] **Token-Authentifizierung** – `rest_framework.authtoken` + `TokenAuthentication` in DRF-Settings; Token-Endpunkt `POST /api/auth/token/`
 
 ## 8. Tests ✅
 
@@ -76,3 +76,50 @@ Abgleich mit `Zusammenfassung.txt`. Stand: 2026-05-28.
 - [x] Markdown-Dokumentationen (z. B. Open-Source-Projekte) → `data/`
 
 > `data/` ist in `.gitignore` eingetragen (nur `.gitkeep` wird versioniert).
+
+---
+
+## 11. Browser-UI (Django + HTMX + Tailwind CSS v4 + Alpine.js)
+
+Stack: Django 5.2 Templates · HTMX 2.x · Alpine.js 3.x · Tailwind CSS v4 (CDN, kein Build-Step)
+
+### 11.1 Grundgerüst
+
+- [ ] **`apps/ui`-App anlegen** – `python manage.py startapp ui`; in `INSTALLED_APPS` eintragen
+- [ ] **Base-Template** – `templates/ui/base.html`; CDN-Links für Tailwind, HTMX, Alpine; Nav-Bar mit Login-Status
+- [ ] **URL-Routing** – `apps/ui/urls.py`; in `config/urls.py` einbinden (Prefix `/ui/`)
+- [ ] **Login / Logout** – Django-Auth-Views einbinden (`/ui/login/`, `/ui/logout/`); Login-Template auf Basis von `base.html`
+- [ ] **Session-basierte Auth für UI** – Django-Session-Authentication für alle UI-Views (kein Token nötig)
+
+### 11.2 Dashboard
+
+- [ ] **Dashboard-View** – `GET /ui/` → Übersicht: Anzahl Dokumente gesamt / READY / PROCESSING / FAILED
+- [ ] **Embedding-Status-Widget** – Anteil Chunks mit Embedding, Prozentanzeige (Fortschrittsbalken)
+- [ ] **Aktive Celery-Tasks** – HTMX-Auto-Refresh alle 5 s; zeigt laufende `process_document`-Tasks (via Celery `inspect`)
+- [ ] **Letzten Ingestions-Log** – Letzte 10 verarbeiteten Dokumente mit Status und Zeitstempel
+
+### 11.3 Dokument-Verwaltung
+
+- [ ] **Dokumentliste** – `GET /ui/documents/`; Tabelle mit Filter (Datei-Typ, Status), Pagination
+- [ ] **Upload-Formular** – Drag & Drop, Datei-Typ-Auswahl, optionale Metadaten (chunker-Auswahl); `POST` löst Celery-Task aus
+- [ ] **Upload-Fortschritt** – HTMX-Polling nach Upload: Status PROCESSING → READY/FAILED mit Badge-Aktualisierung
+- [ ] **Dokument-Detailseite** – Chunk-Liste, Embedding-Status, Metadaten; Link zu verknüpften Dokumenten
+- [ ] **Dokument löschen** – `DELETE` via HTMX mit Bestätigungs-Dialog (Alpine.js)
+
+### 11.4 Agent-Query-Interface
+
+- [ ] **Query-Formular** – Freitext-Eingabe + Absenden-Button; HTMX-POST an `/api/agent/query/`
+- [ ] **Antwort-Anzeige** – Answer-Text, Plan-Schritte, Tool-Calls als aufklappbare Akkordeons (Alpine.js)
+- [ ] **Streaming-Antwort** – SSE-Verbindung zu `/api/agent/stream/`; Chunks werden live in die Seite gestreamt
+- [ ] **Query-Historie** – Letzte Anfragen der Session in der Sidebar anzeigen
+
+### 11.5 Suche
+
+- [ ] **Suchmaske** – Freitext + Modus-Auswahl (hybrid / vector / fulltext / metadata); HTMX-GET an `/api/search/`
+- [ ] **Ergebnisliste** – Chunk-Text, Score, Dokument-Titel, Treffer-Highlight
+
+### 11.6 Abschluss
+
+- [ ] **`reembed_documents`-Trigger** – Admin-only Button im Dashboard startet Management-Command via Celery-Task
+- [ ] **Fehler-Seiten** – 403-, 404-, 500-Templates auf Basis von `base.html`
+- [ ] **Tests** – View-Tests für Dashboard, Upload, Query (mit Login-Fixture; kein Selenium nötig)
