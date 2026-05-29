@@ -106,23 +106,31 @@ cp .env.example .env
 ### 2. Container bauen und starten
 
 ```bash
+./docker/build-docker.sh
+```
+
+Das Skript führt alle Schritte automatisch in der richtigen Reihenfolge aus:
+Container bauen → DB/Redis starten → Migrationen → Demo-Daten laden → alle Services starten.
+
+```bash
+./docker/build-docker.sh --fresh     # ohne Build-Cache (nach Dependency-Änderungen)
+./docker/build-docker.sh --no-seed   # Demo-Daten überspringen
+```
+
+<details>
+<summary>Manuelle Schritte (ohne Skript)</summary>
+
+```bash
 docker compose -f docker/docker-compose.yml --env-file .env build
 docker compose -f docker/docker-compose.yml --env-file .env up -d db redis
-```
-
-### 3. Datenbank initialisieren
-
-```bash
 docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py migrate
-```
-
-### 4. Demo-Daten laden
-
-```bash
 docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py seed_data
+docker compose -f docker/docker-compose.yml --env-file .env up -d
 ```
 
-Das Command ist **idempotent** – es kann nach jedem Container-Neubau erneut ausgeführt werden, ohne Duplikate zu erzeugen.  Es legt die Demo-Benutzer an und lädt einige Beispieldokumente in die Datenbank (Ingestion-Worker muss dafür laufen).
+Das `seed_data`-Command ist **idempotent** – es kann nach jedem Container-Neubau erneut ausgeführt werden, ohne Duplikate zu erzeugen.
+
+</details>
 
 #### Demo-Benutzer
 
@@ -134,16 +142,11 @@ Das Command ist **idempotent** – es kann nach jedem Container-Neubau erneut au
 
 > **Hinweis:** Diese Passwörter sind ausschließlich für lokale Entwicklung und Tests gedacht.  Niemals in Produktionsumgebungen verwenden.
 
-### 5. System starten
+### 3. System stoppen
 
 ```bash
-docker compose -f docker/docker-compose.yml --env-file .env up
+docker compose -f docker/docker-compose.yml --env-file .env down
 ```
-
-Erreichbar unter:
-- Browser-UI: http://localhost:8001/ui/
-- Django-Admin: http://localhost:8001/admin/
-- REST-API: http://localhost:8001/api/
 
 > **Hinweis:** Ollama läuft auf einem separaten Rechner. `OLLAMA_BASE_URL` in `.env` entsprechend setzen.
 
