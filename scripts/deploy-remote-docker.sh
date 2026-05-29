@@ -11,17 +11,22 @@ REGISTRY="192.168.178.80:5000"
 REMOTE_HOST="192.168.178.80"
 REMOTE_USER="rolf"
 
+# ── Pfade ─────────────────────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+ENV_FILE="$REPO_ROOT/.env"
+
 # Build versioned tag for logging: v<version>-<git-sha>
-VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-GIT_SHA=$(git rev-parse --short HEAD)
+VERSION=$(python -c "import tomllib; print(tomllib.load(open('$REPO_ROOT/pyproject.toml','rb'))['project']['version'])")
+GIT_SHA=$(git -C "$REPO_ROOT" rev-parse --short HEAD)
 TAG="v${VERSION}-${GIT_SHA}"
 
-# Read Ollama model names from .env (fall back to .env.example defaults)
-EMBED_MODEL=$(grep -E '^OLLAMA_EMBED_MODEL=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || true)
-EMBED_MODEL="${EMBED_MODEL:-nomic-embed-text}"
+# Read Ollama model names from .env (fall back to defaults)
+EMBED_MODEL=$(grep -E '^OLLAMA_EMBED_MODEL=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d '"' || true)
+EMBED_MODEL="${EMBED_MODEL:-nomic-embed-text:latest}"
 
-CHAT_MODEL=$(grep -E '^OLLAMA_CHAT_MODEL=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || true)
-CHAT_MODEL="${CHAT_MODEL:-qwen2.5:7b}"
+CHAT_MODEL=$(grep -E '^OLLAMA_CHAT_MODEL=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d '"' || true)
+CHAT_MODEL="${CHAT_MODEL:-qwen3.5:9b}"
 
 echo "=== agentic_rag – Remote Ollama Setup (tag: ${TAG}) ==="
 echo "    Registry:    ${REGISTRY}"
