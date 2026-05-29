@@ -114,18 +114,36 @@ docker compose -f docker/docker-compose.yml --env-file .env up -d db redis
 
 ```bash
 docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py migrate
-docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py createsuperuser
 ```
 
-### 4. System starten
+### 4. Demo-Daten laden
+
+```bash
+docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py seed_data
+```
+
+Das Command ist **idempotent** – es kann nach jedem Container-Neubau erneut ausgeführt werden, ohne Duplikate zu erzeugen.  Es legt die Demo-Benutzer an und lädt einige Beispieldokumente in die Datenbank (Ingestion-Worker muss dafür laufen).
+
+#### Demo-Benutzer
+
+| Benutzername | Passwort    | Rolle    | Rechte                          |
+|--------------|-------------|----------|---------------------------------|
+| `admin`      | `admin123`  | admin    | alles + Django-Admin (`/admin/`)|
+| `analyst`    | `analyst123`| analyst  | Dokumente hochladen & löschen   |
+| `viewer`     | `viewer123` | viewer   | nur lesen & suchen              |
+
+> **Hinweis:** Diese Passwörter sind ausschließlich für lokale Entwicklung und Tests gedacht.  Niemals in Produktionsumgebungen verwenden.
+
+### 5. System starten
 
 ```bash
 docker compose -f docker/docker-compose.yml --env-file .env up
 ```
 
 Erreichbar unter:
-- Django-Backend: http://localhost:8000
-- Django-Admin: http://localhost:8000/admin
+- Browser-UI: http://localhost:8001/ui/
+- Django-Admin: http://localhost:8001/admin/
+- REST-API: http://localhost:8001/api/
 
 > **Hinweis:** Ollama läuft auf einem separaten Rechner. `OLLAMA_BASE_URL` in `.env` entsprechend setzen.
 
