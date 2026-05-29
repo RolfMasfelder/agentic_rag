@@ -150,6 +150,7 @@ def document_detail(request, pk):
     doc = get_object_or_404(_user_documents(request.user), pk=pk)
     total_chunks = doc.chunks.count()
     embedded = doc.chunks.filter(embedding__isnull=False).count()
+    embedded_ids = set(doc.chunks.filter(embedding__isnull=False).values_list("id", flat=True))
     return render(
         request,
         "ui/documents/detail.html",
@@ -158,6 +159,7 @@ def document_detail(request, pk):
             "chunks": doc.chunks.order_by("position")[:50],
             "total_chunks": total_chunks,
             "embedded_chunks": embedded,
+            "embedded_ids": embedded_ids,
             "embed_pct": round(embedded / total_chunks * 100) if total_chunks else 0,
         },
     )

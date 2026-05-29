@@ -62,7 +62,7 @@
       <div class="flex items-center gap-2 mb-1.5">
         <span class="text-gray-400 font-mono">#{{ chunk.position }}</span>
         <span class="text-gray-400">{{ chunk.chunk_type }}</span>
-        {% if chunk.embedding %}
+        {% if chunk.id in embedded_ids %}
         <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">embedded</span>
         {% else %}
         <span class="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">kein embedding</span>
