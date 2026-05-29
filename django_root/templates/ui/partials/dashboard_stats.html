@@ -1,0 +1,71 @@
+<!-- Stat cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-xl border border-gray-200 p-5">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Gesamt</p>
+    <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.total }}</p>
+    <p class="text-xs text-gray-400 mt-1">Dokumente</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-5">
+    <p class="text-xs font-medium text-green-600 uppercase tracking-wide">Bereit</p>
+    <p class="text-3xl font-bold text-green-700 mt-1">{{ stats.ready }}</p>
+    <p class="text-xs text-gray-400 mt-1">vollständig verarbeitet</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-5">
+    <p class="text-xs font-medium text-blue-600 uppercase tracking-wide">In Arbeit</p>
+    <p class="text-3xl font-bold text-blue-700 mt-1">{{ stats.processing|add:stats.pending }}</p>
+    <p class="text-xs text-gray-400 mt-1">{{ stats.processing }} aktiv, {{ stats.pending }} wartend</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-5">
+    <p class="text-xs font-medium text-red-600 uppercase tracking-wide">Fehler</p>
+    <p class="text-3xl font-bold text-red-700 mt-1">{{ stats.failed }}</p>
+    <p class="text-xs text-gray-400 mt-1">fehlgeschlagen</p>
+  </div>
+</div>
+
+<!-- Embedding coverage -->
+<div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+  <div class="flex items-center justify-between mb-2">
+    <p class="text-sm font-medium text-gray-700">Embedding-Abdeckung</p>
+    <span class="text-sm font-semibold {% if stats.embed_pct == 100 %}text-green-600{% elif stats.embed_pct > 50 %}text-blue-600{% else %}text-gray-500{% endif %}">
+      {{ stats.embedded_chunks }} / {{ stats.total_chunks }} Chunks ({{ stats.embed_pct }}%)
+    </span>
+  </div>
+  <div class="w-full bg-gray-100 rounded-full h-2.5">
+    <div class="h-2.5 rounded-full transition-all
+      {% if stats.embed_pct == 100 %}bg-green-500{% elif stats.embed_pct > 50 %}bg-blue-500{% else %}bg-indigo-400{% endif %}"
+         style="width: {{ stats.embed_pct }}%"></div>
+  </div>
+</div>
+
+<!-- Recent documents -->
+{% if recent %}
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+    <h3 class="text-sm font-semibold text-gray-700">Letzte Dokumente</h3>
+    <a href="{% url 'ui:document_list' %}" class="text-xs text-indigo-600 hover:text-indigo-800">Alle anzeigen →</a>
+  </div>
+  <table class="min-w-full text-sm">
+    <tbody class="divide-y divide-gray-50">
+      {% for doc in recent %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-5 py-3">
+          <a href="{% url 'ui:document_detail' doc.pk %}" class="font-medium text-indigo-700 hover:text-indigo-900">
+            {{ doc.title|truncatechars:60 }}
+          </a>
+        </td>
+        <td class="px-3 py-3 text-gray-400 text-xs">{{ doc.get_file_type_display }}</td>
+        <td class="px-3 py-3">
+          {% include "ui/partials/status_badge.html" with status=doc.status %}
+        </td>
+        <td class="px-5 py-3 text-gray-400 text-xs whitespace-nowrap">{{ doc.created_at|date:"d.m.Y H:i" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 text-sm">
+  Noch keine Dokumente vorhanden.
+  <a href="{% url 'ui:document_upload' %}" class="text-indigo-600 hover:underline ml-1">Jetzt hochladen →</a>
+</div>
+{% endif %}

@@ -1,0 +1,51 @@
+{% extends "ui/base.html" %}
+{% block title %}Agent-Abfrage – Agentic RAG{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-bold text-gray-900">Agent-Abfrage</h1>
+  <p class="text-sm text-gray-500 mt-1">Der Agent durchsucht die Wissensbasis und beantwortet deine Frage.</p>
+</div>
+
+<div class="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl mb-6">
+  <form id="agent-form"
+        hx-post="{% url 'ui:agent_query' %}"
+        hx-target="#agent-result"
+        hx-swap="innerHTML"
+        hx-indicator="#agent-spinner"
+        class="space-y-4">
+    {% csrf_token %}
+    <div>
+      <label for="id_question" class="block text-sm font-medium text-gray-700 mb-1">Deine Frage</label>
+      <textarea name="question" id="id_question" rows="4" required
+                placeholder="Was möchtest du wissen? z.B.: Erkläre den OAuth2 Authorization Code Flow."
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400">{{ question }}</textarea>
+    </div>
+    <div class="flex items-center gap-3">
+      <button type="submit"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+        Fragen
+      </button>
+      <div id="agent-spinner" class="htmx-indicator flex items-center gap-2 text-sm text-gray-500">
+        <svg class="animate-spin h-4 w-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        Agent arbeitet…
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Result area -->
+<div id="agent-result">
+  {% if result or error %}
+  {% include "ui/agent/query_result.html" %}
+  {% endif %}
+</div>
+
+<style>
+  #agent-spinner { display: none; }
+  .htmx-request #agent-spinner { display: flex; }
+</style>
+{% endblock %}

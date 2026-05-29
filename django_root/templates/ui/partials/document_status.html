@@ -1,0 +1,8 @@
+<div id="doc-status-{{ doc.pk }}"
+     {% if doc.status == "pending" or doc.status == "processing" %}
+     hx-get="{% url 'ui:document_status' doc.pk %}"
+     hx-trigger="every 3s"
+     hx-swap="outerHTML"
+     {% endif %}>
+  {% include "ui/partials/status_badge.html" with status=doc.status %}
+</div>

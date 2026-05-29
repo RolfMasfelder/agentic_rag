@@ -36,7 +36,12 @@ LOCAL_APPS = [
     "apps.documents",
     "apps.audit",
     "apps.agent",
+    "apps.ui",
 ]
+
+LOGIN_URL = "/ui/login/"
+LOGIN_REDIRECT_URL = "/ui/"
+LOGOUT_REDIRECT_URL = "/ui/login/"
 
 # Agent settings
 AGENT_MAX_CONTEXT_TOKENS = env.int("AGENT_MAX_CONTEXT_TOKENS", default=6_000)

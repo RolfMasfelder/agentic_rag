@@ -1,0 +1,25 @@
+{% extends "ui/base.html" %}
+{% block title %}Dokument löschen – Agentic RAG{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto mt-12">
+  <div class="bg-white rounded-xl border border-red-200 p-8 text-center">
+    <div class="text-4xl mb-4">⚠️</div>
+    <h1 class="text-xl font-bold text-gray-900 mb-2">Dokument löschen?</h1>
+    <p class="text-sm text-gray-600 mb-1">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <p class="text-sm font-medium text-gray-800 mt-3 mb-6 bg-gray-50 px-4 py-3 rounded-lg">„{{ doc.title }}"</p>
+
+    <form method="post" class="flex justify-center gap-3">
+      {% csrf_token %}
+      <button type="submit"
+              class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+        Endgültig löschen
+      </button>
+      <a href="{% url 'ui:document_detail' doc.pk %}"
+         class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+        Abbrechen
+      </a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ doc.title|truncatechars:40 }} – Agentic RAG{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <nav class="text-sm text-gray-500 mb-2">
+    <a href="{% url 'ui:document_list' %}" class="hover:text-indigo-600">Dokumente</a>
+    <span class="mx-2">›</span>
+    <span>{{ doc.title|truncatechars:50 }}</span>
+  </nav>
+  <div class="flex items-start justify-between flex-wrap gap-3">
+    <h1 class="text-2xl font-bold text-gray-900">{{ doc.title }}</h1>
+    {% if request.user.role in "admin analyst" %}
+    <a href="{% url 'ui:document_delete' doc.pk %}"
+       class="text-sm text-red-600 hover:text-red-800 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+      Löschen
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Metadata card -->
+<div class="bg-white rounded-xl border border-gray-200 p-5 mb-5 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+  <div>
+    <p class="text-xs text-gray-400 mb-1">Typ</p>
+    <p class="font-medium text-gray-800">{{ doc.get_file_type_display }}</p>
+  </div>
+  <div>
+    <p class="text-xs text-gray-400 mb-1">Status</p>
+    {% include "ui/partials/document_status.html" %}
+  </div>
+  <div>
+    <p class="text-xs text-gray-400 mb-1">Erstellt</p>
+    <p class="font-medium text-gray-800">{{ doc.created_at|date:"d.m.Y H:i" }}</p>
+  </div>
+  <div>
+    <p class="text-xs text-gray-400 mb-1">Von</p>
+    <p class="font-medium text-gray-800">{{ doc.created_by.username|default:"–" }}</p>
+  </div>
+</div>
+
+<!-- Embedding coverage -->
+<div class="bg-white rounded-xl border border-gray-200 p-5 mb-5">
+  <div class="flex items-center justify-between mb-2">
+    <p class="text-sm font-medium text-gray-700">Embedding-Abdeckung</p>
+    <span class="text-sm font-semibold text-gray-600">{{ embedded_chunks }} / {{ total_chunks }} Chunks ({{ embed_pct }}%)</span>
+  </div>
+  <div class="w-full bg-gray-100 rounded-full h-2">
+    <div class="h-2 rounded-full bg-indigo-500 transition-all" style="width: {{ embed_pct }}%"></div>
+  </div>
+</div>
+
+<!-- Chunks -->
+{% if chunks %}
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-gray-700">Chunks (erste 50 von {{ total_chunks }})</h2>
+  </div>
+  <div class="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
+    {% for chunk in chunks %}
+    <div class="px-5 py-3 text-xs">
+      <div class="flex items-center gap-2 mb-1.5">
+        <span class="text-gray-400 font-mono">#{{ chunk.position }}</span>
+        <span class="text-gray-400">{{ chunk.chunk_type }}</span>
+        {% if chunk.embedding %}
+        <span class="bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">embedded</span>
+        {% else %}
+        <span class="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">kein embedding</span>
+        {% endif %}
+      </div>
+      <p class="text-gray-600 leading-relaxed">{{ chunk.content|truncatechars:300 }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 text-sm">
+  Noch keine Chunks vorhanden. Dokument wird möglicherweise gerade verarbeitet.
+</div>
+{% endif %}
+{% endblock %}
