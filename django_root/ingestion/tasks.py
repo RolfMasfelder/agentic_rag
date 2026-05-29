@@ -29,7 +29,12 @@ def process_document(self, document_id: int) -> None:
         logger.exception("Error processing document %d.", document_id)
         if document is not None:
             document.status = Document.Status.FAILED
-            document.save(update_fields=["status"])
+            # Store a short human-readable error message for the UI.
+            # Only keep the last attempt's message (retries overwrite).
+            error_type = type(exc).__name__
+            error_detail = str(exc)
+            document.error_message = f"{error_type}: {error_detail}"
+            document.save(update_fields=["status", "error_message"])
         raise self.retry(exc=exc, countdown=60)
 
 

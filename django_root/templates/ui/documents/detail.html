@@ -39,6 +39,27 @@
   </div>
 </div>
 
+<!-- Fehlerhinweis bei FAILED -->
+{% if doc.status == "failed" %}
+<div class="bg-red-50 border border-red-200 rounded-xl p-5 mb-5">
+  <div class="flex items-start gap-3">
+    <span class="text-red-500 text-lg leading-none mt-0.5">&#9888;</span>
+    <div>
+      <p class="text-sm font-semibold text-red-700 mb-1">Verarbeitung fehlgeschlagen</p>
+      {% if doc.error_message %}
+      <p class="text-xs text-red-600 font-mono break-all">{{ doc.error_message }}</p>
+      {% else %}
+      <p class="text-xs text-red-600">Kein Fehlerdetail verfügbar. Bitte Worker-Logs prüfen.</p>
+      {% endif %}
+      <p class="text-xs text-gray-500 mt-2">
+        Mögliche Ursachen: Datei nicht lesbar (Berechtigungsfehler), nicht unterstütztes Format, oder Parser-Fehler.
+        Dokument löschen und erneut hochladen, um es nochmals zu versuchen.
+      </p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Embedding coverage -->
 <div class="bg-white rounded-xl border border-gray-200 p-5 mb-5">
   <div class="flex items-center justify-between mb-2">

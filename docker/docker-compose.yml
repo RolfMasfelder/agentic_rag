@@ -35,7 +35,7 @@ services:
     command: python django_root/manage.py runserver 0.0.0.0:8000
     volumes:
       - ..:/app:z
-      - media_data:/app/media
+      - media_data:/app/media:z
     ports:
       - "8001:8000"
     env_file: ../.env
@@ -56,7 +56,7 @@ services:
     command: celery -A config worker --loglevel=INFO
     volumes:
       - ..:/app:z
-      - media_data:/app/media
+      - media_data:/app/media:z
     env_file: ../.env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.dev

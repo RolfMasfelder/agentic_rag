@@ -68,6 +68,9 @@
         <td class="px-4 py-3 text-gray-500">{{ doc.get_file_type_display }}</td>
         <td class="px-4 py-3">
           {% include "ui/partials/status_badge.html" with status=doc.status %}
+          {% if doc.status == "failed" and doc.error_message %}
+          <p class="text-xs text-red-500 mt-1 font-mono truncate max-w-xs" title="{{ doc.error_message }}">{{ doc.error_message|truncatechars:60 }}</p>
+          {% endif %}
         </td>
         <td class="px-4 py-3 text-gray-500">{{ doc.chunks.count }}</td>
         <td class="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{{ doc.created_at|date:"d.m.Y" }}</td>
