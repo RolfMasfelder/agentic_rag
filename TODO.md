@@ -113,7 +113,7 @@ Stack: Django 5.2 Templates · HTMX 2.x · Alpine.js 3.x · Tailwind CSS v4 (CDN
 - [x] **Query-Formular** – Freitext-Eingabe + Absenden-Button; HTMX-POST an `/api/agent/query/`
 - [x] **Antwort-Anzeige** – Answer-Text, Plan-Schritte, Tool-Calls als aufklappbare Akkordeons (Alpine.js)
 - [x] **Streaming-Antwort** – SSE-Verbindung zu `/api/agent/stream/`; Chunks werden live in die Seite gestreamt
-- [ ] **Query-Historie** – Letzte Anfragen der Session in der Sidebar anzeigen
+- [x] **Query-Historie** – Session-Verlauf in der Sidebar, Klick füllt Textarea vor, Löschen-Button
 
 ### 11.5 Suche
 
@@ -122,6 +122,6 @@ Stack: Django 5.2 Templates · HTMX 2.x · Alpine.js 3.x · Tailwind CSS v4 (CDN
 
 ### 11.6 Abschluss
 
-- [ ] **`reembed_documents`-Trigger** – Admin-only Button im Dashboard startet Management-Command via Celery-Task
-- [x] **Fehler-Seiten** – 403-Template vorhanden (`templates/ui/403.html`); 404/500 noch offen
-- [ ] **Tests** – View-Tests für Dashboard, Upload, Query (mit Login-Fixture; kein Selenium nötig)
+- [x] **`reembed_documents`-Trigger** – Admin-Button im Dashboard; `reembed_documents` Celery-Task in `ingestion/tasks.py`
+- [x] **Fehler-Seiten** – 403/404/500-Templates vorhanden (`templates/ui/403.html`, `templates/404.html`, `templates/500.html`)
+- [x] **Tests** – 30 UI-View-Tests in `tests/test_ui_views.py` (Dashboard, Dokumente, Upload, Agent, Suche, reembed)
