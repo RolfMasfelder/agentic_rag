@@ -196,8 +196,22 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
                 idx = rest.index("TOOL:")
                 plan = rest[:idx].strip()
                 logger.info("Agent plan (inline tool): %s", plan)
-                tool_result = _execute_tool_call("TOOL:" + rest[idx + len("TOOL:") :])
+                tool_text = rest[idx + len("TOOL:") :]
+                tool_result = _execute_tool_call("TOOL:" + tool_text)
                 tool_calls += 1
+                # If the same packed response already contains ANSWER: and the tool
+                # succeeded, return it directly – no extra LLM round-trip needed.
+                if "error" not in tool_result and "ANSWER:" in tool_text:
+                    ans_idx = tool_text.index("ANSWER:")
+                    inline_answer = tool_text[ans_idx + len("ANSWER:") :].strip()
+                    if inline_answer:
+                        logger.info("Using inline ANSWER from packed PLAN+TOOL response.")
+                        return {
+                            "answer": inline_answer,
+                            "plan": plan,
+                            "iterations": iteration + 1,
+                            "conversation": conversation,
+                        }
                 conversation.append(
                     {
                         "role": "user",
@@ -244,6 +258,18 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
         if response.startswith("TOOL:"):
             tool_result = _execute_tool_call(response)
             tool_calls += 1
+            # Packed response: use inline ANSWER: if tool succeeded.
+            if "error" not in tool_result and "ANSWER:" in response:
+                ans_idx = response.index("ANSWER:")
+                inline_answer = response[ans_idx + len("ANSWER:") :].strip()
+                if inline_answer:
+                    logger.info("Using inline ANSWER from packed TOOL response.")
+                    return {
+                        "answer": inline_answer,
+                        "plan": plan,
+                        "iterations": iteration + 1,
+                        "conversation": conversation,
+                    }
             conversation.append(
                 {
                     "role": "user",
@@ -401,15 +427,25 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                 plan_text = rest[:idx].strip()
                 logger.info("Agent plan (inline tool): %s", plan_text)
                 yield {"type": "plan", "content": plan_text}
-                tool_result = _execute_tool_call("TOOL:" + rest[idx + len("TOOL:") :])
+                tool_text = rest[idx + len("TOOL:") :]
+                tool_result = _execute_tool_call("TOOL:" + tool_text)
                 tool_calls += 1
+                yield {"type": "tool_result", "content": tool_result}
+                # Packed response: use inline ANSWER: if tool succeeded.
+                if "error" not in tool_result and "ANSWER:" in tool_text:
+                    ans_idx = tool_text.index("ANSWER:")
+                    inline_answer = tool_text[ans_idx + len("ANSWER:") :].strip()
+                    if inline_answer:
+                        logger.info("Using inline ANSWER from packed stream PLAN+TOOL response.")
+                        yield {"type": "answer_chunk", "content": inline_answer}
+                        yield {"type": "done", "iterations": iteration + 1}
+                        return
                 conversation.append(
                     {
                         "role": "user",
                         "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
                     }
                 )
-                yield {"type": "tool_result", "content": tool_result}
                 continue
             if "ANSWER:" in rest:
                 idx = rest.index("ANSWER:")
@@ -437,13 +473,22 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
             yield {"type": "tool_call", "tool": tool_name.strip(), "args": raw_args}
             tool_result = _execute_tool_call(response)
             tool_calls += 1
+            yield {"type": "tool_result", "content": tool_result}
+            # Packed response: use inline ANSWER: if tool succeeded.
+            if "error" not in tool_result and "ANSWER:" in response:
+                ans_idx = response.index("ANSWER:")
+                inline_answer = response[ans_idx + len("ANSWER:") :].strip()
+                if inline_answer:
+                    logger.info("Using inline ANSWER from packed stream TOOL response.")
+                    yield {"type": "answer_chunk", "content": inline_answer}
+                    yield {"type": "done", "iterations": iteration + 1}
+                    return
             conversation.append(
                 {
                     "role": "user",
                     "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
                 }
             )
-            yield {"type": "tool_result", "content": tool_result}
         else:
             yield {"type": "error", "content": f"Unexpected response: {response[:120]}"}
             break
