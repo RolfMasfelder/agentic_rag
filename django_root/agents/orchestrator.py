@@ -1,3 +1,4 @@
+import inspect
 import json
 import logging
 from collections.abc import Iterator
@@ -30,11 +31,42 @@ TOOLS: dict[str, Any] = {
     "raspi_temperature_read": raspi_tools.raspi_temperature_read,
 }
 
-_TOOL_LIST = "\n".join(f"  - {name}" for name in TOOLS)
+
+def _tool_signature_line(name: str, func: Any) -> str:
+    """Return a compact signature line for the system prompt, e.g.
+    ``  - raspi_led_blink(pin: int, n: int = 3, ...)  # Blink the LED``"""
+    try:
+        sig = inspect.signature(func)
+    except (ValueError, TypeError):
+        return f"  - {name}()"
+    parts: list[str] = []
+    for pname, param in sig.parameters.items():
+        if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            continue
+        ann = param.annotation
+        if ann is inspect.Parameter.empty:
+            type_str = "Any"
+        elif hasattr(ann, "__name__"):
+            type_str = ann.__name__
+        else:
+            type_str = str(ann)
+        if param.default is not inspect.Parameter.empty:
+            parts.append(f"{pname}: {type_str} = {param.default!r}")
+        else:
+            parts.append(f"{pname}: {type_str}")
+    doc_first = ((func.__doc__ or "").strip().splitlines() or [""])[0]
+    sig_str = f"  - {name}({', '.join(parts)})"
+    return f"{sig_str}  # {doc_first}" if doc_first else sig_str
+
+
+_TOOL_LIST = "\n".join(_tool_signature_line(name, func) for name, func in TOOLS.items())
 
 _SYSTEM_PROMPT = f"""\
 Du bist ein Analyse-Agent mit Zugriff auf folgende Werkzeuge:
 {_TOOL_LIST}
+
+Raspberry Pi GPIO-Pin-Zuordnung (BCM-Nummerierung):
+  rote LED = pin 17, gelbe LED = pin 27, grüne LED = pin 22
 
 Arbeitsablauf:
 1. Antworte zuerst mit einem Retrievalplan:
