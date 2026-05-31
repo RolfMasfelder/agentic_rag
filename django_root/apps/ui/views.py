@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
@@ -36,14 +37,29 @@ def _user_documents(user):
 
 
 _EXT_TO_FILE_TYPE: dict[str, str] = {
+    # PDF
     ".pdf": "pdf",
+    # Markdown / reStructuredText
     ".md": "markdown",
     ".rst": "markdown",
+    # XML family
     ".xml": "xml",
     ".xsd": "xml",
+    ".xsl": "xml",
+    ".xslt": "xml",
+    ".atom": "xml",
+    ".rss": "xml",
+    ".rdf": "xml",
+    ".svg": "xml",
+    ".kml": "xml",
+    ".gpx": "xml",
+    ".wsdl": "xml",
+    ".pom": "xml",
+    # OpenAPI / structured data
     ".yaml": "openapi",
     ".yml": "openapi",
     ".json": "openapi",
+    # Code
     ".py": "code",
     ".js": "code",
     ".ts": "code",
@@ -51,13 +67,66 @@ _EXT_TO_FILE_TYPE: dict[str, str] = {
     ".c": "code",
     ".cpp": "code",
     ".h": "code",
+    ".hpp": "code",
+    ".go": "code",
+    ".rs": "code",
+    ".rb": "code",
+    ".cs": "code",
+    ".php": "code",
+    ".kt": "code",
+    ".swift": "code",
+    ".sh": "code",
+    ".bash": "code",
+    # Plain text
     ".txt": "text",
     ".text": "text",
+    ".csv": "text",
+    ".tsv": "text",
+    ".html": "text",
+    ".htm": "text",
+    ".ini": "text",
+    ".toml": "text",
+    ".cfg": "text",
+    ".conf": "text",
 }
 
+# Magic-byte signatures tried when extension is unknown.
+# Each entry: (prefix_bytes, file_type)
+_MAGIC_SIGNATURES: list[tuple[bytes, str]] = [
+    (b"%PDF-", "pdf"),
+    (b"<?xml", "xml"),
+    (b"<feed", "xml"),  # Atom without XML declaration
+    (b"<rss", "xml"),
+    (b"<svg", "xml"),
+    (b"<opml", "xml"),
+]
 
-def _auto_detect_file_type(filename: str) -> str:
-    return _EXT_TO_FILE_TYPE.get(Path(filename).suffix.lower(), "other")
+
+def _sniff_content_type(head: bytes) -> str:
+    """Return a file_type string inferred from the first bytes of content."""
+    stripped = head.lstrip()
+    for signature, file_type in _MAGIC_SIGNATURES:
+        if stripped.startswith(signature):
+            return file_type
+    # Try UTF-8 text patterns
+    try:
+        text = stripped[:128].decode("utf-8", errors="ignore").lstrip()
+    except Exception:
+        return "other"
+    if text.startswith("openapi:") or text.startswith("swagger:"):
+        return "openapi"
+    if text.startswith("{") or text.startswith("["):
+        if "openapi" in text or "swagger" in text:
+            return "openapi"
+    return "other"
+
+
+def _auto_detect_file_type(filename: str, head: bytes = b"") -> str:
+    """Detect file type from extension; fall back to magic-byte sniffing for unknowns."""
+    detected = _EXT_TO_FILE_TYPE.get(Path(filename).suffix.lower(), "other")
+    if detected == "other" and head:
+        return _sniff_content_type(head)
+    return detected
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -145,6 +214,12 @@ def document_upload(request):
             uploaded_files = request.FILES.getlist("files")
             if not uploaded_files:
                 messages.error(request, "Bitte mindestens eine Datei auswählen.")
+            elif len(uploaded_files) >= settings.DATA_UPLOAD_MAX_NUMBER_FILES:
+                messages.error(
+                    request,
+                    f"Zu viele Dateien: maximal {settings.DATA_UPLOAD_MAX_NUMBER_FILES - 1} auf einmal erlaubt,"
+                    f" es wurden {len(uploaded_files)} ausgewählt.",
+                )
             else:
                 from ingestion.tasks import process_document
 
@@ -156,7 +231,7 @@ def document_upload(request):
                     if Document.objects.filter(content_hash=content_hash).exists():
                         skipped += 1
                         continue
-                    detected_type = _auto_detect_file_type(uploaded_file.name)
+                    detected_type = _auto_detect_file_type(uploaded_file.name, content[:64])
                     title = Path(uploaded_file.name).stem.replace("_", " ").replace("-", " ")
                     doc = Document.objects.create(
                         title=title,
@@ -260,6 +335,7 @@ def agent_query(request):
     result = None
     question = ""
     error = None
+    history: list[dict] = request.session.get("query_history", [])
     if request.method == "POST":
         question = request.POST.get("question", "").strip()
         if question:
@@ -270,6 +346,16 @@ def agent_query(request):
             except Exception as exc:
                 logger.exception("Agent query failed.")
                 error = str(exc)
+        if result and not error:
+            answer_excerpt = (result.get("answer") or "")[:120]
+            history = [
+                {
+                    "question": question,
+                    "answer_excerpt": answer_excerpt,
+                    "ts": datetime.now().strftime("%H:%M"),
+                }
+            ] + history[:9]
+            request.session["query_history"] = history
         if request.headers.get("HX-Request"):
             return render(
                 request,
@@ -279,8 +365,16 @@ def agent_query(request):
     return render(
         request,
         "ui/agent/query.html",
-        {"result": result, "question": question, "error": error},
+        {"result": result, "question": question, "error": error, "query_history": history},
     )
+
+
+@login_required
+def agent_clear_history(request):
+    """POST-only: clear the query history stored in the session."""
+    if request.method == "POST":
+        request.session.pop("query_history", None)
+    return redirect("ui:agent_query")
 
 
 # ── Search ────────────────────────────────────────────────────────────────────
@@ -320,3 +414,19 @@ def search(request):
     if request.headers.get("HX-Request"):
         return render(request, "ui/search/results.html", ctx)
     return render(request, "ui/search/index.html", ctx)
+
+
+# ── Admin actions ──────────────────────────────────────────────────────────────
+
+
+@login_required
+def admin_reembed(request):
+    """POST-only: queue a Celery task to generate missing embeddings (admin only)."""
+    if request.user.role != "admin":
+        return render(request, "ui/403.html", status=403)
+    if request.method == "POST":
+        from ingestion.tasks import reembed_documents
+
+        reembed_documents.delay()
+        messages.success(request, "Re-Embedding-Task wurde gestartet.")
+    return redirect("ui:dashboard")

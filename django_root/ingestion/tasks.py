@@ -38,6 +38,36 @@ def process_document(self, document_id: int) -> None:
         raise self.retry(exc=exc, countdown=60)
 
 
+@shared_task
+def reembed_documents() -> dict[str, int]:
+    """Generate embeddings for all chunks that are currently missing them.
+
+    Only processes documents in READY status. Errors per-document are logged
+    but do not abort the overall task.
+    """
+    from apps.documents.models import Chunk, Document
+
+    doc_ids = list(
+        Chunk.objects.filter(
+            embedding__isnull=True,
+            document__status=Document.Status.READY,
+        )
+        .values_list("document_id", flat=True)
+        .distinct()
+    )
+    processed, failed = 0, 0
+    for doc_id in doc_ids:
+        try:
+            document = Document.objects.get(pk=doc_id)
+            _generate_embeddings(document)
+            processed += 1
+        except Exception:
+            logger.exception("reembed_documents: failed for document %d.", doc_id)
+            failed += 1
+    logger.info("reembed_documents: %d processed, %d failed.", processed, failed)
+    return {"processed": processed, "failed": failed}
+
+
 def _parse_and_chunk(document) -> None:
     from apps.documents.models import Chunk
     from ingestion.chunkers.clause import ClauseChunker

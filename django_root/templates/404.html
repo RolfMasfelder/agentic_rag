@@ -1,0 +1,16 @@
+{% extends "ui/base.html" %}
+{% block title %}Seite nicht gefunden – Agentic RAG{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto mt-16 text-center">
+  <div class="text-5xl mb-4">🔍</div>
+  <h1 class="text-2xl font-bold text-gray-900 mb-2">Seite nicht gefunden</h1>
+  <p class="text-sm text-gray-600 mb-6">
+    Die angeforderte Seite existiert nicht oder wurde verschoben.
+  </p>
+  <a href="{% url 'ui:dashboard' %}"
+     class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors">
+    Zurück zum Dashboard
+  </a>
+</div>
+{% endblock %}

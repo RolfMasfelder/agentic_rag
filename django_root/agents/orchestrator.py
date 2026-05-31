@@ -6,6 +6,7 @@ from typing import Any
 from agents.context import trim_conversation
 from agents.schema import validate_tool_args
 from agents.tools import documents as doc_tools
+from agents.tools import raspi as raspi_tools
 from agents.tools import search as search_tools
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,13 @@ TOOLS: dict[str, Any] = {
     "summarize_document": doc_tools.summarize_document,
     "graph_traversal": doc_tools.graph_traversal,
     "find_similar_documents": doc_tools.find_similar_documents,
+    # Raspberry Pi hardware tools
+    "raspi_led_on": raspi_tools.raspi_led_on,
+    "raspi_led_off": raspi_tools.raspi_led_off,
+    "raspi_led_blink": raspi_tools.raspi_led_blink,
+    "raspi_led_status": raspi_tools.raspi_led_status,
+    "raspi_temperature_list_sensors": raspi_tools.raspi_temperature_list_sensors,
+    "raspi_temperature_read": raspi_tools.raspi_temperature_read,
 }
 
 _TOOL_LIST = "\n".join(f"  - {name}" for name in TOOLS)

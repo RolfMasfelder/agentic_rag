@@ -21,6 +21,9 @@ urlpatterns = [
     path("documents/<int:pk>/delete/", views.document_delete, name="document_delete"),
     # Agent
     path("agent/", views.agent_query, name="agent_query"),
+    path("agent/clear-history/", views.agent_clear_history, name="agent_clear_history"),
     # Search
     path("search/", views.search, name="search"),
+    # Admin actions
+    path("admin/reembed/", views.admin_reembed, name="admin_reembed"),
 ]

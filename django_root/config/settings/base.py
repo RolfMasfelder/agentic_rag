@@ -47,6 +47,9 @@ LOGOUT_REDIRECT_URL = "/ui/login/"
 # Agent settings
 AGENT_MAX_CONTEXT_TOKENS = env.int("AGENT_MAX_CONTEXT_TOKENS", default=6_000)
 
+# Upload limits
+DATA_UPLOAD_MAX_NUMBER_FILES = env.int("DATA_UPLOAD_MAX_NUMBER_FILES", default=500)
+
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
@@ -105,6 +108,7 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = REPO_ROOT / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = REPO_ROOT / "media"
 
@@ -118,10 +122,13 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 
+# Raspberry Pi MCP server
+RASPI_MCP_URL = env("RASPI_MCP_URL")
+
 # LLM / Ollama
-OLLAMA_BASE_URL = env("OLLAMA_BASE_URL", default="http://ollama:11434")
-OLLAMA_EMBED_MODEL = env("OLLAMA_EMBED_MODEL", default="nomic-embed-text")
-OLLAMA_CHAT_MODEL = env("OLLAMA_CHAT_MODEL", default="qwen2.5:7b")
+OLLAMA_BASE_URL = env("OLLAMA_BASE_URL")
+OLLAMA_EMBED_MODEL = env("OLLAMA_EMBED_MODEL")
+OLLAMA_CHAT_MODEL = env("OLLAMA_CHAT_MODEL")
 # Leave empty to disable fallback; set e.g. "llama3.2:3b" for a lighter model.
 OLLAMA_FALLBACK_MODEL = env("OLLAMA_FALLBACK_MODEL", default="")
 EMBEDDING_DIM = env.int("EMBEDDING_DIM", default=768)
