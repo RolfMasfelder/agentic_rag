@@ -172,6 +172,7 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
         trimmed = trim_conversation(conversation)
         response = chat(trimmed)
         response = _extract_directive(response)
+        logger.debug("[iter=%d] After extract_directive: %r", iteration, response[:300])
         if not response:
             logger.warning("LLM returned empty response on iteration %d – nudging.", iteration)
             conversation.append({"role": "assistant", "content": "(empty)"})

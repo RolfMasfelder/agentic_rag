@@ -6,6 +6,7 @@ import ollama
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+_raw_logger = logging.getLogger("llm.raw")
 
 # Matches <think>...</think> blocks emitted by Qwen3/3.5 thinking models.
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
@@ -70,6 +71,7 @@ def _do_chat(model: str, messages: list[dict[str, str]]) -> str:
         content = response["message"]["content"]
     else:
         content = response.message.content
+    _raw_logger.debug("[model=%s] RAW OUTPUT:\n%s", model, content)
     return _strip_thinking(content)
 
 

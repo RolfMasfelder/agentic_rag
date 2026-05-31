@@ -30,3 +30,4 @@ data/*
 .vscode/
 *.swp
 *.swo
+logs/*.log

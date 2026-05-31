@@ -182,11 +182,23 @@ LOGGING = {
             "format": "{levelname} {asctime} {module} {message}",
             "style": "{",
         },
+        "raw": {
+            "format": "{asctime}\n{message}\n" + "-" * 80,
+            "style": "{",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
+        },
+        "llm_raw_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(REPO_ROOT / "logs" / "llm_raw.log"),
+            "maxBytes": 10 * 1024 * 1024,  # 10 MB
+            "backupCount": 3,
+            "formatter": "raw",
+            "encoding": "utf-8",
         },
     },
     "root": {
@@ -202,5 +214,10 @@ LOGGING = {
         "ingestion": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
         "retrieval": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
         "agents": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+        "llm.raw": {
+            "handlers": ["llm_raw_file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
     },
 }
