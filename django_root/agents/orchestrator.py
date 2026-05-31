@@ -187,17 +187,7 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
         if response.startswith("PLAN:"):
             rest = response[len("PLAN:") :].strip()
             # qwen2.5/qwen3.5 sometimes packs PLAN + TOOL/ANSWER into a single response.
-            # Extract the embedded directive so we don't discard the answer.
-            if "ANSWER:" in rest:
-                idx = rest.index("ANSWER:")
-                plan = rest[:idx].strip()
-                logger.info("Agent plan (inline answer): %s", plan)
-                return {
-                    "answer": rest[idx + len("ANSWER:") :].strip(),
-                    "plan": plan,
-                    "iterations": iteration + 1,
-                    "conversation": conversation,
-                }
+            # TOOL: takes priority: execute it first, let the LLM answer naturally afterwards.
             if "TOOL:" in rest:
                 idx = rest.index("TOOL:")
                 plan = rest[:idx].strip()
@@ -211,6 +201,16 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
                     }
                 )
                 continue
+            if "ANSWER:" in rest:
+                idx = rest.index("ANSWER:")
+                plan = rest[:idx].strip()
+                logger.info("Agent plan (inline answer): %s", plan)
+                return {
+                    "answer": rest[idx + len("ANSWER:") :].strip(),
+                    "plan": plan,
+                    "iterations": iteration + 1,
+                    "conversation": conversation,
+                }
             plan = rest
             logger.info("Agent plan: %s", plan)
             # If the plan itself looks like a direct tool call (Python syntax),
@@ -372,15 +372,7 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
 
         if response.startswith("PLAN:"):
             rest = response[len("PLAN:") :].strip()
-            if "ANSWER:" in rest:
-                idx = rest.index("ANSWER:")
-                plan_text = rest[:idx].strip()
-                logger.info("Agent plan (inline answer): %s", plan_text)
-                answer_text = rest[idx + len("ANSWER:") :].strip()
-                yield {"type": "plan", "content": plan_text}
-                yield {"type": "answer_chunk", "content": answer_text}
-                yield {"type": "done", "iterations": iteration + 1}
-                return
+            # TOOL: takes priority over ANSWER: – execute the tool first.
             if "TOOL:" in rest:
                 idx = rest.index("TOOL:")
                 plan_text = rest[:idx].strip()
@@ -396,6 +388,15 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                 )
                 yield {"type": "tool_result", "content": tool_result}
                 continue
+            if "ANSWER:" in rest:
+                idx = rest.index("ANSWER:")
+                plan_text = rest[:idx].strip()
+                logger.info("Agent plan (inline answer): %s", plan_text)
+                answer_text = rest[idx + len("ANSWER:") :].strip()
+                yield {"type": "plan", "content": plan_text}
+                yield {"type": "answer_chunk", "content": answer_text}
+                yield {"type": "done", "iterations": iteration + 1}
+                return
             plan_text = rest
             logger.info("Agent plan: %s", plan_text)
             yield {"type": "plan", "content": plan_text}
