@@ -76,6 +76,27 @@ def _reset_session() -> None:
         _session_id = None
 
 
+def _parse_mcp_response(resp: httpx.Response) -> dict[str, Any]:
+    """Parse a JSON-RPC response from raspi-mcp.
+
+    FastMCP always responds with ``Content-Type: text/event-stream`` even for
+    single-shot requests.  The body looks like::
+
+        event: message\r\n
+        data: {"jsonrpc":"2.0","id":1,"result":{...}}\r\n
+        \r\n
+
+    We extract the ``data:`` line and parse that JSON.
+    """
+    content_type = resp.headers.get("content-type", "")
+    if "text/event-stream" in content_type:
+        for line in resp.text.splitlines():
+            if line.startswith("data: "):
+                return json.loads(line[len("data: ") :])
+        raise RuntimeError(f"Kein data:-Eintrag in SSE-Antwort gefunden: {resp.text[:300]!r}")
+    return resp.json()
+
+
 def _call_tool(tool_name: str, arguments: dict[str, Any], _retry: bool = True) -> Any:
     """Call a tool on the raspi-mcp server and return the parsed result dict."""
     session_id = _get_session()
@@ -98,27 +119,37 @@ def _call_tool(tool_name: str, arguments: dict[str, Any], _retry: bool = True) -
         return _call_tool(tool_name, arguments, _retry=False)
 
     resp.raise_for_status()
-    data = resp.json()
+    data = _parse_mcp_response(resp)
 
     if "error" in data:
         raise RuntimeError(f"MCP-Fehler bei {tool_name}: {data['error']}")
 
-    # result.content ist eine Liste von {"type": "text", "text": "<json-string>"}
-    content = data.get("result", {}).get("content", [])
+    result = data.get("result", {})
+
+    # result.content ist eine Liste von {"type": "text", "text": "..."}.
+    # Bei isError:true enthält text die Fehlermeldung als Klartext.
+    content = result.get("content", [])
     if content and content[0].get("type") == "text":
         text = content[0]["text"]
+        if result.get("isError"):
+            raise RuntimeError(f"MCP-Tool {tool_name!r} meldete Fehler: {text}")
         if not text:
             raise RuntimeError(f"MCP-Tool {tool_name!r} antwortete mit leerem Text-Inhalt.")
         try:
             return json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(f"MCP-Tool {tool_name!r} lieferte kein gültiges JSON: {text[:120]!r}") from exc
-    return data.get("result")
+        except json.JSONDecodeError:
+            # Tool returned plain text (not JSON) – wrap it.
+            return {"result": text}
+    return result
 
 
 # ---------------------------------------------------------------------------
 # LED tools
 # ---------------------------------------------------------------------------
+
+
+# FastMCP 1.x does NOT flatten Pydantic model parameters: tools that declare
+# ``input: SomeModel`` require the arguments dict to be ``{"input": {...}}``.
 
 
 def raspi_led_on(pin: int) -> dict[str, Any]:
@@ -130,7 +161,7 @@ def raspi_led_on(pin: int) -> dict[str, Any]:
     Returns:
         Dict with keys ``pin`` and ``state`` ("on").
     """
-    return _call_tool("gpio_led_on", {"pin": pin})
+    return _call_tool("gpio_led_on", {"input": {"pin": pin}})
 
 
 def raspi_led_off(pin: int) -> dict[str, Any]:
@@ -142,7 +173,7 @@ def raspi_led_off(pin: int) -> dict[str, Any]:
     Returns:
         Dict with keys ``pin`` and ``state`` ("off").
     """
-    return _call_tool("gpio_led_off", {"pin": pin})
+    return _call_tool("gpio_led_off", {"input": {"pin": pin}})
 
 
 def raspi_led_blink(
@@ -164,7 +195,7 @@ def raspi_led_blink(
     """
     return _call_tool(
         "gpio_led_blink",
-        {"pin": pin, "n": n, "on_time": on_time, "off_time": off_time},
+        {"input": {"pin": pin, "n": n, "on_time": on_time, "off_time": off_time}},
     )
 
 
@@ -177,7 +208,7 @@ def raspi_led_status(pin: int) -> dict[str, Any]:
     Returns:
         Dict with keys ``pin`` and ``state`` ("on" or "off").
     """
-    return _call_tool("gpio_led_status", {"pin": pin})
+    return _call_tool("gpio_led_status", {"input": {"pin": pin}})
 
 
 # ---------------------------------------------------------------------------
@@ -203,4 +234,4 @@ def raspi_temperature_read(sensor_id: str) -> dict[str, Any]:
     Returns:
         Dict with keys ``sensor_id``, ``temperature_c``, ``temperature_f``.
     """
-    return _call_tool("temperature_read", {"sensor_id": sensor_id})
+    return _call_tool("temperature_read", {"input": {"sensor_id": sensor_id}})
