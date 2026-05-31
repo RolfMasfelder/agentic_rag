@@ -118,6 +118,9 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 
+# Raspberry Pi MCP server
+RASPI_MCP_URL = env("RASPI_MCP_URL", default="http://pi1:8080/mcp")
+
 # LLM / Ollama
 OLLAMA_BASE_URL = env("OLLAMA_BASE_URL", default="http://ollama:11434")
 OLLAMA_EMBED_MODEL = env("OLLAMA_EMBED_MODEL", default="nomic-embed-text")
