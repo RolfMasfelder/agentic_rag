@@ -428,18 +428,21 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                 logger.info("Agent plan (inline tool): %s", plan_text)
                 yield {"type": "plan", "content": plan_text}
                 tool_text = rest[idx + len("TOOL:") :]
-                tool_result = _execute_tool_call("TOOL:" + tool_text)
-                tool_calls += 1
-                yield {"type": "tool_result", "content": tool_result}
-                # Packed response: use inline ANSWER: if tool succeeded.
-                if "error" not in tool_result and "ANSWER:" in tool_text:
+                # Yield inline ANSWER *before* executing the tool so the browser
+                # renders the text while the (possibly slow) tool is still running.
+                inline_answer = ""
+                if "ANSWER:" in tool_text:
                     ans_idx = tool_text.index("ANSWER:")
                     inline_answer = tool_text[ans_idx + len("ANSWER:") :].strip()
                     if inline_answer:
-                        logger.info("Using inline ANSWER from packed stream PLAN+TOOL response.")
+                        logger.info("Yielding inline ANSWER before tool execution (packed stream PLAN+TOOL).")
                         yield {"type": "answer_chunk", "content": inline_answer}
-                        yield {"type": "done", "iterations": iteration + 1}
-                        return
+                tool_result = _execute_tool_call("TOOL:" + tool_text)
+                tool_calls += 1
+                yield {"type": "tool_result", "content": tool_result}
+                if inline_answer:
+                    yield {"type": "done", "iterations": iteration + 1}
+                    return
                 conversation.append(
                     {
                         "role": "user",
@@ -471,18 +474,21 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                 raw_args = {}
                 tool_name = response
             yield {"type": "tool_call", "tool": tool_name.strip(), "args": raw_args}
-            tool_result = _execute_tool_call(response)
-            tool_calls += 1
-            yield {"type": "tool_result", "content": tool_result}
-            # Packed response: use inline ANSWER: if tool succeeded.
-            if "error" not in tool_result and "ANSWER:" in response:
+            # Yield inline ANSWER *before* executing the tool so the browser
+            # renders the text while the (possibly slow) tool is still running.
+            inline_answer = ""
+            if "ANSWER:" in response:
                 ans_idx = response.index("ANSWER:")
                 inline_answer = response[ans_idx + len("ANSWER:") :].strip()
                 if inline_answer:
-                    logger.info("Using inline ANSWER from packed stream TOOL response.")
+                    logger.info("Yielding inline ANSWER before tool execution (packed stream TOOL).")
                     yield {"type": "answer_chunk", "content": inline_answer}
-                    yield {"type": "done", "iterations": iteration + 1}
-                    return
+            tool_result = _execute_tool_call(response)
+            tool_calls += 1
+            yield {"type": "tool_result", "content": tool_result}
+            if inline_answer:
+                yield {"type": "done", "iterations": iteration + 1}
+                return
             conversation.append(
                 {
                     "role": "user",
