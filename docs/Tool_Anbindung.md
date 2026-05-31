@@ -68,3 +68,24 @@ einfache Python-Funktionen mit Docstring.
 
 Das LLM entscheidet also nicht, *wie* ein Tool implementiert ist — es formuliert nur
 die Anforderung. Die Anwendung übernimmt die Übersetzung in den passenden Aufruf.
+
+## Statisches vs. dynamisches Tool-Register
+
+Die Tool-Anbindung ist bewusst **statisch** gehalten. Jede neue Funktion (intern oder
+per MCP) erfordert drei manuelle Schritte:
+
+1. Tool implementieren (lokal in `agents/tools/` oder auf dem MCP-Server)
+2. Wrapper-Funktion in `agents/tools/raspi.py` schreiben (nur bei MCP-Tools)
+3. Eintrag in `TOOLS` im Orchestrator ergänzen
+
+Eine dynamische Alternative (beim Start `tools/list` gegen den MCP-Server abfragen und
+Tools automatisch registrieren) wurde bewusst **nicht** umgesetzt:
+
+| | Statisch (gewählt) | Dynamisch |
+|---|---|---|
+| Kontrolle | Explizit, nachvollziehbar | Automatisch aus `tools/list` |
+| Docstrings/Typen | In Python gepflegt | Aus MCP-Schema übernommen |
+| Fehler | Auffällig beim Code-Review | Erst zur Laufzeit sichtbar |
+| Aufwand bei Änderung | 3 Dateien anfassen | Nur MCP-Server ändern |
+
+**Entscheidung**: Statischer Ansatz bleibt bestehen.
