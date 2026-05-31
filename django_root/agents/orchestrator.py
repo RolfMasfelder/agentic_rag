@@ -82,6 +82,31 @@ Regeln:
 """
 
 
+_DIRECTIVES = ("PLAN:", "TOOL:", "ANSWER:")
+
+
+def _extract_directive(text: str) -> str:
+    """Return *text* starting from the first known directive keyword.
+
+    LLMs sometimes emit preamble (markdown tables, reasoning artefacts, …)
+    before the actual directive.  We skip everything before the first
+    occurrence of PLAN:, TOOL: or ANSWER: so the main loop can match on
+    ``str.startswith``.  If no directive is found the original text is
+    returned unchanged.
+    """
+    earliest_pos = len(text)
+    for directive in _DIRECTIVES:
+        pos = text.find(directive)
+        if pos != -1 and pos < earliest_pos:
+            earliest_pos = pos
+    if earliest_pos == len(text):
+        return text
+    skipped = text[:earliest_pos].strip()
+    if skipped:
+        logger.debug("Skipped LLM preamble before directive: %r", skipped[:120])
+    return text[earliest_pos:]
+
+
 def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
     """Agentic retrieval loop with planning, schema validation, and context trimming.
 
@@ -104,6 +129,7 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
     for iteration in range(max_iterations):
         trimmed = trim_conversation(conversation)
         response = chat(trimmed)
+        response = _extract_directive(response)
         conversation.append({"role": "assistant", "content": response})
 
         if response.startswith("PLAN:"):
@@ -242,11 +268,15 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
 
             # Determine directive type from the growing buffer.
             if directive_type is None:
-                if response_buf.startswith("ANSWER:"):
+                trimmed_buf = _extract_directive(response_buf)
+                if trimmed_buf.startswith("ANSWER:"):
                     directive_type = "answer"
-                elif response_buf.startswith(("PLAN:", "TOOL:")):
+                    response_buf = trimmed_buf
+                elif trimmed_buf.startswith(("PLAN:", "TOOL:")):
                     directive_type = "directive"
-                elif len(response_buf) > 12:
+                    response_buf = trimmed_buf
+                elif len(response_buf) > 50:
+                    # Long preamble with no directive found yet – keep buffering
                     directive_type = "directive"
 
             if directive_type == "answer":
@@ -259,7 +289,7 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                     answer_emitted_len = len(content_so_far)
 
         # ── Post-stream processing ──────────────────────────────────────────
-        response = response_buf
+        response = _extract_directive(response_buf)
         conversation.append({"role": "assistant", "content": response})
 
         if directive_type == "answer" or response.startswith("ANSWER:"):
