@@ -216,9 +216,17 @@ def _tool_result_message(tool_result: Any, tool_calls: int, nudge_after: int) ->
 def _execute_tool_call(response: str) -> Any:
     try:
         rest = response[len("TOOL:") :].strip()
-        tool_name, args_str = rest.split("ARGS:", 1)
-        tool_name = tool_name.strip()
-        raw_args: dict[str, Any] = json.loads(args_str.strip())
+        if "ARGS:" in rest:
+            tool_name, args_str = rest.split("ARGS:", 1)
+            tool_name = tool_name.strip()
+            raw_args: dict[str, Any] = json.loads(args_str.strip())
+        else:
+            # LLM omitted "ARGS:" – try to split on first '{' instead.
+            brace = rest.find("{")
+            if brace == -1:
+                return {"error": f"Cannot parse tool call – no ARGS and no JSON object found: {rest[:80]}"}
+            tool_name = rest[:brace].strip()
+            raw_args = json.loads(rest[brace:])
 
         if tool_name not in TOOLS:
             return {"error": f"Unknown tool: {tool_name}"}
