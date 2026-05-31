@@ -106,7 +106,13 @@ def _call_tool(tool_name: str, arguments: dict[str, Any], _retry: bool = True) -
     # result.content ist eine Liste von {"type": "text", "text": "<json-string>"}
     content = data.get("result", {}).get("content", [])
     if content and content[0].get("type") == "text":
-        return json.loads(content[0]["text"])
+        text = content[0]["text"]
+        if not text:
+            raise RuntimeError(f"MCP-Tool {tool_name!r} antwortete mit leerem Text-Inhalt.")
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"MCP-Tool {tool_name!r} lieferte kein gültiges JSON: {text[:120]!r}") from exc
     return data.get("result")
 
 

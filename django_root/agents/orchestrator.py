@@ -284,35 +284,47 @@ def _tool_result_message(tool_result: Any, tool_calls: int, nudge_after: int) ->
 
 
 def _execute_tool_call(response: str) -> Any:
+    _parsed_name: str = "?"
     try:
         rest = response[len("TOOL:") :].strip()
+        logger.debug("_execute_tool_call input: %r", rest[:300])
+
         if "ARGS:" in rest:
-            tool_name, args_str = rest.split("ARGS:", 1)
-            tool_name = tool_name.strip()
-            raw_args: dict[str, Any] = json.loads(args_str.strip())
+            name_part, after_args = rest.split("ARGS:", 1)
+            _parsed_name = name_part.strip()
+            after_args = after_args.strip()
         else:
-            # LLM omitted "ARGS:" – try to split on first '{' instead.
+            # LLM omitted "ARGS:" – scan for first '{'.
             brace = rest.find("{")
             if brace == -1:
-                return {"error": f"Cannot parse tool call – no ARGS and no JSON object found: {rest[:80]}"}
-            tool_name = rest[:brace].strip()
-            raw_args = json.loads(rest[brace:])
+                return {"error": f"Cannot parse tool call – no ARGS and no JSON found: {rest[:80]}"}
+            _parsed_name = rest[:brace].strip()
+            after_args = rest[brace:]
 
-        if tool_name not in TOOLS:
-            return {"error": f"Unknown tool: {tool_name}"}
+        # If after_args doesn't start with '{', the LLM may have put the JSON
+        # on the next line or omitted it entirely (e.g. ARGS:\nANSWER: ...).
+        if not after_args.startswith("{"):
+            brace = after_args.find("{")
+            if brace == -1:
+                return {"error": f"No JSON object in args for {_parsed_name!r}: {after_args[:80]}"}
+            after_args = after_args[brace:]
 
-        validated = validate_tool_args(TOOLS[tool_name], raw_args)
+        if _parsed_name not in TOOLS:
+            return {"error": f"Unknown tool: {_parsed_name}"}
+
+        # raw_decode consumes only the first complete JSON object and ignores
+        # any trailing text (e.g. "\nANSWER: ..." packed into the same response).
+        decoder = json.JSONDecoder()
+        raw_args, _ = decoder.raw_decode(after_args)
+
+        validated = validate_tool_args(TOOLS[_parsed_name], raw_args)
         if "error" in validated and len(validated) == 1:
             return validated  # validation failed – return error to LLM
 
-        return TOOLS[tool_name](**validated)
+        return TOOLS[_parsed_name](**validated)
     except Exception as exc:
         logger.exception("Tool execution failed.")
-        _raw_logger.error(
-            "TOOL ERROR [%s]: %s",
-            locals().get("tool_name", "?"),
-            exc,
-        )
+        _raw_logger.error("TOOL ERROR [%s]: %s", _parsed_name, exc)
         return {"error": str(exc)}
 
 
