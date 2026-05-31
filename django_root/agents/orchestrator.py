@@ -12,6 +12,7 @@ from agents.tools import raspi as raspi_tools
 from agents.tools import search as search_tools
 
 logger = logging.getLogger(__name__)
+_raw_logger = logging.getLogger("llm.raw")
 
 TOOLS: dict[str, Any] = {
     "search_documents": search_tools.search_documents,
@@ -159,6 +160,8 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
     """
     from llm.client import chat
 
+    _raw_logger.debug("USER QUERY:\n%s", user_query)
+
     conversation: list[dict[str, str]] = [
         {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "user", "content": user_query},
@@ -305,6 +308,11 @@ def _execute_tool_call(response: str) -> Any:
         return TOOLS[tool_name](**validated)
     except Exception as exc:
         logger.exception("Tool execution failed.")
+        _raw_logger.error(
+            "TOOL ERROR [%s]: %s",
+            locals().get("tool_name", "?"),
+            exc,
+        )
         return {"error": str(exc)}
 
 
@@ -323,6 +331,8 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
     ANSWER chunks are forwarded to the caller as they arrive from the LLM.
     """
     from llm.client import chat_stream
+
+    _raw_logger.debug("USER QUERY (stream):\n%s", user_query)
 
     conversation: list[dict[str, str]] = [
         {"role": "system", "content": _SYSTEM_PROMPT},
