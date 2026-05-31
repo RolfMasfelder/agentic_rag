@@ -108,6 +108,7 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = REPO_ROOT / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = REPO_ROOT / "media"
 
