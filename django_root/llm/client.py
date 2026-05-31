@@ -9,11 +9,19 @@ logger = logging.getLogger(__name__)
 
 # Matches <think>...</think> blocks emitted by Qwen3/3.5 thinking models.
 _THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+# Stray closing tag when Ollama already stripped the opening tag.
+_THINK_CLOSE_RE = re.compile(r"</think>", re.DOTALL)
+# Chat-template tokens that some models leak into the output.
+_CHAT_TOKENS_RE = re.compile(r"<\|[^|>]+\|>")
 
 
 def _strip_thinking(text: str) -> str:
-    """Remove <think>...</think> blocks and normalise surrounding whitespace."""
-    return _THINK_RE.sub("", text).strip()
+    """Remove <think>…</think> blocks, stray closing tags, and chat-template
+    tokens emitted by Qwen3/3.5 and similar models."""
+    text = _THINK_RE.sub("", text)
+    text = _THINK_CLOSE_RE.sub("", text)
+    text = _CHAT_TOKENS_RE.sub("", text)
+    return text.strip()
 
 
 def _client() -> ollama.Client:
