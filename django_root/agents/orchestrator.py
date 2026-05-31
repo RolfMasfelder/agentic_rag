@@ -1,3 +1,4 @@
+import ast
 import inspect
 import json
 import logging
@@ -85,14 +86,49 @@ Regeln:
 _DIRECTIVES = ("PLAN:", "TOOL:", "ANSWER:")
 
 
+def _python_call_to_tool(text: str) -> str | None:
+    """Try to parse a Python-style function call like ``name(a=1, b=2)``
+    and return a normalised ``TOOL: name ARGS: {...}`` string, or None."""
+    stripped = text.strip()
+    # Quick pre-check before the expensive ast parse.
+    paren = stripped.find("(")
+    if paren == -1 or not stripped.endswith(")"):
+        return None
+    candidate_name = stripped[:paren].strip()
+    if candidate_name not in TOOLS:
+        return None
+    try:
+        tree = ast.parse(stripped, mode="eval")
+        call = tree.body
+        if not isinstance(call, ast.Call):
+            return None
+        kwargs: dict[str, Any] = {}
+        for kw in call.keywords:
+            if kw.arg is not None:
+                kwargs[kw.arg] = ast.literal_eval(kw.value)
+        # Positional args mapped by parameter order.
+        sig = inspect.signature(TOOLS[candidate_name])
+        params = [
+            p
+            for p in sig.parameters.values()
+            if p.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+        ]
+        for i, arg_node in enumerate(call.args):
+            if i < len(params):
+                kwargs[params[i].name] = ast.literal_eval(arg_node)
+        return f"TOOL: {candidate_name} ARGS: {json.dumps(kwargs)}"
+    except Exception:
+        return None
+
+
 def _extract_directive(text: str) -> str:
     """Return *text* starting from the first known directive keyword.
 
     LLMs sometimes emit preamble (markdown tables, reasoning artefacts, …)
-    before the actual directive.  We skip everything before the first
-    occurrence of PLAN:, TOOL: or ANSWER: so the main loop can match on
-    ``str.startswith``.  If no directive is found the original text is
-    returned unchanged.
+    before the actual directive, or use Python call syntax instead of the
+    expected ``TOOL: name ARGS: {...}`` format.  We normalise all of that
+    so the main loop can rely on ``str.startswith``.
+    If no directive is found the original text is returned unchanged.
     """
     earliest_pos = len(text)
     for directive in _DIRECTIVES:
@@ -100,6 +136,12 @@ def _extract_directive(text: str) -> str:
         if pos != -1 and pos < earliest_pos:
             earliest_pos = pos
     if earliest_pos == len(text):
+        # No directive found – check every line for Python call syntax.
+        for line in text.splitlines():
+            converted = _python_call_to_tool(line)
+            if converted:
+                logger.debug("Converted Python call to TOOL directive: %r", line[:80])
+                return converted
         return text
     skipped = text[:earliest_pos].strip()
     if skipped:
@@ -130,6 +172,16 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
         trimmed = trim_conversation(conversation)
         response = chat(trimmed)
         response = _extract_directive(response)
+        if not response:
+            logger.warning("LLM returned empty response on iteration %d – nudging.", iteration)
+            conversation.append({"role": "assistant", "content": "(empty)"})
+            conversation.append(
+                {
+                    "role": "user",
+                    "content": "Bitte antworte mit TOOL: <name> ARGS: {...} oder ANSWER: <antwort>.",
+                }
+            )
+            continue
         conversation.append({"role": "assistant", "content": response})
 
         if response.startswith("PLAN:"):
@@ -161,6 +213,20 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
                 continue
             plan = rest
             logger.info("Agent plan: %s", plan)
+            # If the plan itself looks like a direct tool call (Python syntax),
+            # convert and execute immediately instead of waiting for next turn.
+            converted = _python_call_to_tool(plan)
+            if converted:
+                logger.info("Plan contained Python call – executing directly: %s", converted)
+                tool_result = _execute_tool_call(converted)
+                tool_calls += 1
+                conversation.append(
+                    {
+                        "role": "user",
+                        "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
+                    }
+                )
+                continue
             continue  # proceed to first TOOL: call
 
         if response.startswith("ANSWER:"):
