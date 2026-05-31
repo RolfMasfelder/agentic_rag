@@ -214,6 +214,12 @@ def document_upload(request):
             uploaded_files = request.FILES.getlist("files")
             if not uploaded_files:
                 messages.error(request, "Bitte mindestens eine Datei auswählen.")
+            elif len(uploaded_files) >= settings.DATA_UPLOAD_MAX_NUMBER_FILES:
+                messages.error(
+                    request,
+                    f"Zu viele Dateien: maximal {settings.DATA_UPLOAD_MAX_NUMBER_FILES - 1} auf einmal erlaubt,"
+                    f" es wurden {len(uploaded_files)} ausgewählt.",
+                )
             else:
                 from ingestion.tasks import process_document
 
