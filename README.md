@@ -22,7 +22,7 @@ Das System ist **kein** einfacher "Chat mit PDFs", sondern ein erweiterbares Wis
 
 ## Projektstruktur
 
-```
+```txt
 agentic_rag/
 │
 ├── docker/
