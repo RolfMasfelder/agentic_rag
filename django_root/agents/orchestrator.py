@@ -1,3 +1,5 @@
+import ast
+import inspect
 import json
 import logging
 from collections.abc import Iterator
@@ -10,6 +12,7 @@ from agents.tools import raspi as raspi_tools
 from agents.tools import search as search_tools
 
 logger = logging.getLogger(__name__)
+_raw_logger = logging.getLogger("llm.raw")
 
 TOOLS: dict[str, Any] = {
     "search_documents": search_tools.search_documents,
@@ -30,11 +33,42 @@ TOOLS: dict[str, Any] = {
     "raspi_temperature_read": raspi_tools.raspi_temperature_read,
 }
 
-_TOOL_LIST = "\n".join(f"  - {name}" for name in TOOLS)
+
+def _tool_signature_line(name: str, func: Any) -> str:
+    """Return a compact signature line for the system prompt, e.g.
+    ``  - raspi_led_blink(pin: int, n: int = 3, ...)  # Blink the LED``"""
+    try:
+        sig = inspect.signature(func)
+    except (ValueError, TypeError):
+        return f"  - {name}()"
+    parts: list[str] = []
+    for pname, param in sig.parameters.items():
+        if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            continue
+        ann = param.annotation
+        if ann is inspect.Parameter.empty:
+            type_str = "Any"
+        elif hasattr(ann, "__name__"):
+            type_str = ann.__name__
+        else:
+            type_str = str(ann)
+        if param.default is not inspect.Parameter.empty:
+            parts.append(f"{pname}: {type_str} = {param.default!r}")
+        else:
+            parts.append(f"{pname}: {type_str}")
+    doc_first = ((func.__doc__ or "").strip().splitlines() or [""])[0]
+    sig_str = f"  - {name}({', '.join(parts)})"
+    return f"{sig_str}  # {doc_first}" if doc_first else sig_str
+
+
+_TOOL_LIST = "\n".join(_tool_signature_line(name, func) for name, func in TOOLS.items())
 
 _SYSTEM_PROMPT = f"""\
 Du bist ein Analyse-Agent mit Zugriff auf folgende Werkzeuge:
 {_TOOL_LIST}
+
+Raspberry Pi GPIO-Pin-Zuordnung (BCM-Nummerierung):
+  rote LED = pin 17, gelbe LED = pin 27, grüne LED = pin 22
 
 Arbeitsablauf:
 1. Antworte zuerst mit einem Retrievalplan:
@@ -50,6 +84,72 @@ Regeln:
 """
 
 
+_DIRECTIVES = ("PLAN:", "TOOL:", "ANSWER:")
+
+
+def _python_call_to_tool(text: str) -> str | None:
+    """Try to parse a Python-style function call like ``name(a=1, b=2)``
+    and return a normalised ``TOOL: name ARGS: {...}`` string, or None."""
+    stripped = text.strip()
+    # Quick pre-check before the expensive ast parse.
+    paren = stripped.find("(")
+    if paren == -1 or not stripped.endswith(")"):
+        return None
+    candidate_name = stripped[:paren].strip()
+    if candidate_name not in TOOLS:
+        return None
+    try:
+        tree = ast.parse(stripped, mode="eval")
+        call = tree.body
+        if not isinstance(call, ast.Call):
+            return None
+        kwargs: dict[str, Any] = {}
+        for kw in call.keywords:
+            if kw.arg is not None:
+                kwargs[kw.arg] = ast.literal_eval(kw.value)
+        # Positional args mapped by parameter order.
+        sig = inspect.signature(TOOLS[candidate_name])
+        params = [
+            p
+            for p in sig.parameters.values()
+            if p.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+        ]
+        for i, arg_node in enumerate(call.args):
+            if i < len(params):
+                kwargs[params[i].name] = ast.literal_eval(arg_node)
+        return f"TOOL: {candidate_name} ARGS: {json.dumps(kwargs)}"
+    except Exception:
+        return None
+
+
+def _extract_directive(text: str) -> str:
+    """Return *text* starting from the first known directive keyword.
+
+    LLMs sometimes emit preamble (markdown tables, reasoning artefacts, …)
+    before the actual directive, or use Python call syntax instead of the
+    expected ``TOOL: name ARGS: {...}`` format.  We normalise all of that
+    so the main loop can rely on ``str.startswith``.
+    If no directive is found the original text is returned unchanged.
+    """
+    earliest_pos = len(text)
+    for directive in _DIRECTIVES:
+        pos = text.find(directive)
+        if pos != -1 and pos < earliest_pos:
+            earliest_pos = pos
+    if earliest_pos == len(text):
+        # No directive found – check every line for Python call syntax.
+        for line in text.splitlines():
+            converted = _python_call_to_tool(line)
+            if converted:
+                logger.debug("Converted Python call to TOOL directive: %r", line[:80])
+                return converted
+        return text
+    skipped = text[:earliest_pos].strip()
+    if skipped:
+        logger.debug("Skipped LLM preamble before directive: %r", skipped[:120])
+    return text[earliest_pos:]
+
+
 def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
     """Agentic retrieval loop with planning, schema validation, and context trimming.
 
@@ -59,6 +159,8 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
       3. LLM emits ANSWER: when done.
     """
     from llm.client import chat
+
+    _raw_logger.debug("USER QUERY:\n%s", user_query)
 
     conversation: list[dict[str, str]] = [
         {"role": "system", "content": _SYSTEM_PROMPT},
@@ -72,12 +174,51 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
     for iteration in range(max_iterations):
         trimmed = trim_conversation(conversation)
         response = chat(trimmed)
+        response = _extract_directive(response)
+        logger.debug("[iter=%d] After extract_directive: %r", iteration, response[:300])
+        if not response:
+            logger.warning("LLM returned empty response on iteration %d – nudging.", iteration)
+            conversation.append({"role": "assistant", "content": "(empty)"})
+            conversation.append(
+                {
+                    "role": "user",
+                    "content": "Bitte antworte mit TOOL: <name> ARGS: {...} oder ANSWER: <antwort>.",
+                }
+            )
+            continue
         conversation.append({"role": "assistant", "content": response})
 
         if response.startswith("PLAN:"):
             rest = response[len("PLAN:") :].strip()
             # qwen2.5/qwen3.5 sometimes packs PLAN + TOOL/ANSWER into a single response.
-            # Extract the embedded directive so we don't discard the answer.
+            # TOOL: takes priority: execute it first, let the LLM answer naturally afterwards.
+            if "TOOL:" in rest:
+                idx = rest.index("TOOL:")
+                plan = rest[:idx].strip()
+                logger.info("Agent plan (inline tool): %s", plan)
+                tool_text = rest[idx + len("TOOL:") :]
+                tool_result = _execute_tool_call("TOOL:" + tool_text)
+                tool_calls += 1
+                # If the same packed response already contains ANSWER: and the tool
+                # succeeded, return it directly – no extra LLM round-trip needed.
+                if "error" not in tool_result and "ANSWER:" in tool_text:
+                    ans_idx = tool_text.index("ANSWER:")
+                    inline_answer = tool_text[ans_idx + len("ANSWER:") :].strip()
+                    if inline_answer:
+                        logger.info("Using inline ANSWER from packed PLAN+TOOL response.")
+                        return {
+                            "answer": inline_answer,
+                            "plan": plan,
+                            "iterations": iteration + 1,
+                            "conversation": conversation,
+                        }
+                conversation.append(
+                    {
+                        "role": "user",
+                        "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
+                    }
+                )
+                continue
             if "ANSWER:" in rest:
                 idx = rest.index("ANSWER:")
                 plan = rest[:idx].strip()
@@ -88,11 +229,14 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
                     "iterations": iteration + 1,
                     "conversation": conversation,
                 }
-            if "TOOL:" in rest:
-                idx = rest.index("TOOL:")
-                plan = rest[:idx].strip()
-                logger.info("Agent plan (inline tool): %s", plan)
-                tool_result = _execute_tool_call("TOOL:" + rest[idx + len("TOOL:") :])
+            plan = rest
+            logger.info("Agent plan: %s", plan)
+            # If the plan itself looks like a direct tool call (Python syntax),
+            # convert and execute immediately instead of waiting for next turn.
+            converted = _python_call_to_tool(plan)
+            if converted:
+                logger.info("Plan contained Python call – executing directly: %s", converted)
+                tool_result = _execute_tool_call(converted)
                 tool_calls += 1
                 conversation.append(
                     {
@@ -101,8 +245,6 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
                     }
                 )
                 continue
-            plan = rest
-            logger.info("Agent plan: %s", plan)
             continue  # proceed to first TOOL: call
 
         if response.startswith("ANSWER:"):
@@ -116,6 +258,18 @@ def run_agent(user_query: str, max_iterations: int = 5) -> dict[str, Any]:
         if response.startswith("TOOL:"):
             tool_result = _execute_tool_call(response)
             tool_calls += 1
+            # Packed response: use inline ANSWER: if tool succeeded.
+            if "error" not in tool_result and "ANSWER:" in response:
+                ans_idx = response.index("ANSWER:")
+                inline_answer = response[ans_idx + len("ANSWER:") :].strip()
+                if inline_answer:
+                    logger.info("Using inline ANSWER from packed TOOL response.")
+                    return {
+                        "answer": inline_answer,
+                        "plan": plan,
+                        "iterations": iteration + 1,
+                        "conversation": conversation,
+                    }
             conversation.append(
                 {
                     "role": "user",
@@ -156,22 +310,47 @@ def _tool_result_message(tool_result: Any, tool_calls: int, nudge_after: int) ->
 
 
 def _execute_tool_call(response: str) -> Any:
+    _parsed_name: str = "?"
     try:
         rest = response[len("TOOL:") :].strip()
-        tool_name, args_str = rest.split("ARGS:", 1)
-        tool_name = tool_name.strip()
-        raw_args: dict[str, Any] = json.loads(args_str.strip())
+        logger.debug("_execute_tool_call input: %r", rest[:300])
 
-        if tool_name not in TOOLS:
-            return {"error": f"Unknown tool: {tool_name}"}
+        if "ARGS:" in rest:
+            name_part, after_args = rest.split("ARGS:", 1)
+            _parsed_name = name_part.strip()
+            after_args = after_args.strip()
+        else:
+            # LLM omitted "ARGS:" – scan for first '{'.
+            brace = rest.find("{")
+            if brace == -1:
+                return {"error": f"Cannot parse tool call – no ARGS and no JSON found: {rest[:80]}"}
+            _parsed_name = rest[:brace].strip()
+            after_args = rest[brace:]
 
-        validated = validate_tool_args(TOOLS[tool_name], raw_args)
+        # If after_args doesn't start with '{', the LLM may have put the JSON
+        # on the next line or omitted it entirely (e.g. ARGS:\nANSWER: ...).
+        if not after_args.startswith("{"):
+            brace = after_args.find("{")
+            if brace == -1:
+                return {"error": f"No JSON object in args for {_parsed_name!r}: {after_args[:80]}"}
+            after_args = after_args[brace:]
+
+        if _parsed_name not in TOOLS:
+            return {"error": f"Unknown tool: {_parsed_name}"}
+
+        # raw_decode consumes only the first complete JSON object and ignores
+        # any trailing text (e.g. "\nANSWER: ..." packed into the same response).
+        decoder = json.JSONDecoder()
+        raw_args, _ = decoder.raw_decode(after_args)
+
+        validated = validate_tool_args(TOOLS[_parsed_name], raw_args)
         if "error" in validated and len(validated) == 1:
             return validated  # validation failed – return error to LLM
 
-        return TOOLS[tool_name](**validated)
+        return TOOLS[_parsed_name](**validated)
     except Exception as exc:
         logger.exception("Tool execution failed.")
+        _raw_logger.error("TOOL ERROR [%s]: %s", _parsed_name, exc)
         return {"error": str(exc)}
 
 
@@ -190,6 +369,8 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
     ANSWER chunks are forwarded to the caller as they arrive from the LLM.
     """
     from llm.client import chat_stream
+
+    _raw_logger.debug("USER QUERY (stream):\n%s", user_query)
 
     conversation: list[dict[str, str]] = [
         {"role": "system", "content": _SYSTEM_PROMPT},
@@ -210,11 +391,15 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
 
             # Determine directive type from the growing buffer.
             if directive_type is None:
-                if response_buf.startswith("ANSWER:"):
+                trimmed_buf = _extract_directive(response_buf)
+                if trimmed_buf.startswith("ANSWER:"):
                     directive_type = "answer"
-                elif response_buf.startswith(("PLAN:", "TOOL:")):
+                    response_buf = trimmed_buf
+                elif trimmed_buf.startswith(("PLAN:", "TOOL:")):
                     directive_type = "directive"
-                elif len(response_buf) > 12:
+                    response_buf = trimmed_buf
+                elif len(response_buf) > 50:
+                    # Long preamble with no directive found yet – keep buffering
                     directive_type = "directive"
 
             if directive_type == "answer":
@@ -227,7 +412,7 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                     answer_emitted_len = len(content_so_far)
 
         # ── Post-stream processing ──────────────────────────────────────────
-        response = response_buf
+        response = _extract_directive(response_buf)
         conversation.append({"role": "assistant", "content": response})
 
         if directive_type == "answer" or response.startswith("ANSWER:"):
@@ -236,6 +421,35 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
 
         if response.startswith("PLAN:"):
             rest = response[len("PLAN:") :].strip()
+            # TOOL: takes priority over ANSWER: – execute the tool first.
+            if "TOOL:" in rest:
+                idx = rest.index("TOOL:")
+                plan_text = rest[:idx].strip()
+                logger.info("Agent plan (inline tool): %s", plan_text)
+                yield {"type": "plan", "content": plan_text}
+                tool_text = rest[idx + len("TOOL:") :]
+                # Yield inline ANSWER *before* executing the tool so the browser
+                # renders the text while the (possibly slow) tool is still running.
+                inline_answer = ""
+                if "ANSWER:" in tool_text:
+                    ans_idx = tool_text.index("ANSWER:")
+                    inline_answer = tool_text[ans_idx + len("ANSWER:") :].strip()
+                    if inline_answer:
+                        logger.info("Yielding inline ANSWER before tool execution (packed stream PLAN+TOOL).")
+                        yield {"type": "answer_chunk", "content": inline_answer}
+                tool_result = _execute_tool_call("TOOL:" + tool_text)
+                tool_calls += 1
+                yield {"type": "tool_result", "content": tool_result}
+                if inline_answer:
+                    yield {"type": "done", "iterations": iteration + 1}
+                    return
+                conversation.append(
+                    {
+                        "role": "user",
+                        "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
+                    }
+                )
+                continue
             if "ANSWER:" in rest:
                 idx = rest.index("ANSWER:")
                 plan_text = rest[:idx].strip()
@@ -245,21 +459,6 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                 yield {"type": "answer_chunk", "content": answer_text}
                 yield {"type": "done", "iterations": iteration + 1}
                 return
-            if "TOOL:" in rest:
-                idx = rest.index("TOOL:")
-                plan_text = rest[:idx].strip()
-                logger.info("Agent plan (inline tool): %s", plan_text)
-                yield {"type": "plan", "content": plan_text}
-                tool_result = _execute_tool_call("TOOL:" + rest[idx + len("TOOL:") :])
-                tool_calls += 1
-                conversation.append(
-                    {
-                        "role": "user",
-                        "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
-                    }
-                )
-                yield {"type": "tool_result", "content": tool_result}
-                continue
             plan_text = rest
             logger.info("Agent plan: %s", plan_text)
             yield {"type": "plan", "content": plan_text}
@@ -275,15 +474,27 @@ def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[
                 raw_args = {}
                 tool_name = response
             yield {"type": "tool_call", "tool": tool_name.strip(), "args": raw_args}
+            # Yield inline ANSWER *before* executing the tool so the browser
+            # renders the text while the (possibly slow) tool is still running.
+            inline_answer = ""
+            if "ANSWER:" in response:
+                ans_idx = response.index("ANSWER:")
+                inline_answer = response[ans_idx + len("ANSWER:") :].strip()
+                if inline_answer:
+                    logger.info("Yielding inline ANSWER before tool execution (packed stream TOOL).")
+                    yield {"type": "answer_chunk", "content": inline_answer}
             tool_result = _execute_tool_call(response)
             tool_calls += 1
+            yield {"type": "tool_result", "content": tool_result}
+            if inline_answer:
+                yield {"type": "done", "iterations": iteration + 1}
+                return
             conversation.append(
                 {
                     "role": "user",
                     "content": _tool_result_message(tool_result, tool_calls, _nudge_after),
                 }
             )
-            yield {"type": "tool_result", "content": tool_result}
         else:
             yield {"type": "error", "content": f"Unexpected response: {response[:120]}"}
             break

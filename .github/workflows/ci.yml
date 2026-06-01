@@ -57,24 +57,34 @@ jobs:
           --health-retries 5
 
     env:
-      DJANGO_SETTINGS_MODULE: config.settings.dev
-      DJANGO_SECRET_KEY: ci-only-secret-not-for-production
-      DEBUG: "True"
-      DB_NAME: agentic_rag_test
-      DB_USER: rag_user
-      DB_PASSWORD: ci-password
-      DB_HOST: localhost
-      DB_PORT: "5432"
-      REDIS_URL: redis://localhost:6379/0
-      CELERY_BROKER_URL: redis://localhost:6379/1
-      OLLAMA_BASE_URL: http://localhost:11434
-      OLLAMA_EMBED_MODEL: nomic-embed-text
-      OLLAMA_CHAT_MODEL: qwen2.5:7b
-      EMBEDDING_DIM: "768"
+      # PYTHONPATH is not in .env.example but required for all Python steps.
+      # All other env vars are loaded from .env.example in the first step below,
+      # so that new variables in .env.example are picked up automatically.
       PYTHONPATH: django_root
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Load env from .env.example with CI overrides
+        run: |
+          # Load .env.example as defaults (skip comments, empty lines, and
+          # placeholder values like http://<host>:port).
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "${line//[[:space:]]/}" ]] && continue
+            key="${line%%=*}"
+            value="${line#*=}"
+            [[ "$value" == *"<"*">"* ]] && continue
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < .env.example
+          # CI-specific overrides (must match the postgres service credentials above)
+          {
+            echo "DJANGO_SECRET_KEY=ci-only-secret-not-for-production"
+            echo "DB_HOST=localhost"
+            echo "DB_NAME=agentic_rag_test"
+            echo "DB_PASSWORD=ci-password"
+            echo "OLLAMA_BASE_URL=http://localhost:11434"
+          } >> "$GITHUB_ENV"
 
       - name: Install system dependencies
         run: sudo apt-get install -y --no-install-recommends libmagic1
