@@ -27,6 +27,7 @@ def fulltext_search(
             "document_id": chunk.document_id,
             "content": chunk.content,
             "chunk_type": chunk.chunk_type,
+            "position": chunk.position,
             "rank": float(chunk.rank),
             "metadata": chunk.metadata,
         }

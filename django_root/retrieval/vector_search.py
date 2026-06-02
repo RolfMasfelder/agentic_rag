@@ -27,6 +27,7 @@ def search_similar_chunks(
             "document_id": chunk.document_id,
             "content": chunk.content,
             "chunk_type": chunk.chunk_type,
+            "position": chunk.position,
             "score": round(1 - chunk.distance, 4),
             "metadata": chunk.metadata,
         }

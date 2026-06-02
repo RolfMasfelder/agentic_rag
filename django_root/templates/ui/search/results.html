@@ -21,6 +21,7 @@
           {{ r.document_title }}
         </a>
         <span class="ml-2 text-xs text-gray-400">{{ r.chunk_type }}</span>
+        {% if r.position is not None %}<span class="ml-1 text-xs text-gray-400">(Chunk {{ r.position }})</span>{% endif %}
       </div>
       <span class="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0">
         Score: {{ r.display_score }}
