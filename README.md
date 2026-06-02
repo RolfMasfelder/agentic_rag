@@ -12,8 +12,8 @@ Das System ist **kein** einfacher "Chat mit PDFs", sondern ein erweiterbares Wis
 
 | Komponente | Technologie |
 |---|---|
-| Backend | Python 3.13, Django 5.1, Django REST Framework |
-| Datenbank | PostgreSQL 16 + pgvector |
+| Backend | Python 3.13, Django 5.2, Django REST Framework |
+| Datenbank | PostgreSQL 17 + pgvector |
 | Task Queue | Celery + Redis |
 | LLM-Laufzeit | Ollama (lokal) |
 | Containerisierung | Docker Compose |
@@ -126,6 +126,8 @@ docker compose -f docker/docker-compose.yml --env-file .env run --rm web python 
 docker compose -f docker/docker-compose.yml --env-file .env run --rm web python django_root/manage.py seed_data
 docker compose -f docker/docker-compose.yml --env-file .env up -d
 ```
+
+Bei laufendem System ist die Oberfläche via `http://localhost:8001/ui/` erreichbar. API-Endpunkte unter `http://localhost:8001/api/`.
 
 Das `seed_data`-Command ist **idempotent** – es kann nach jedem Container-Neubau erneut ausgeführt werden, ohne Duplikate zu erzeugen.
 
