@@ -9,6 +9,7 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - dependencies
+      - python
 
   - package-ecosystem: github-actions
     directory: /
@@ -17,3 +18,4 @@ updates:
       day: monday
     labels:
       - dependencies
+      - github-actions
