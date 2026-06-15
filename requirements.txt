@@ -11,6 +11,6 @@ PyMuPDF>=1.27.2.3
 pdfplumber>=0.11.9
 pytesseract>=0.3.13
 Pillow>=12.2.0
-httpx>=0.27
+httpx>=0.28.1
 python-magic>=0.4.27
 drf-spectacular>=0.29.0
