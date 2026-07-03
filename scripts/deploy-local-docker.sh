@@ -9,7 +9,13 @@ set -euo pipefail
 #   ./scripts/deploy-local-docker.sh --no-cache # force full rebuild
 #   ./scripts/deploy-local-docker.sh --push     # also push to local registry
 
-REGISTRY="192.168.178.80:5000"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+ENV_FILE="$REPO_ROOT/.env"
+
+# Read deploy target from .env (required for --push)
+REGISTRY=$(grep -E '^DEPLOY_REGISTRY=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d '"' || true)
+
 COMPOSE="docker compose -f docker/docker-compose.yml --env-file .env"
 EXTRA_ARGS=()
 PUSH=false
@@ -38,6 +44,10 @@ echo "  ✓ Images built"
 
 # Step 2: Optionally push to local registry for versioning/rollback
 if [[ "${PUSH}" == "true" ]]; then
+  if [[ -z "${REGISTRY}" ]]; then
+    echo "  ✗ DEPLOY_REGISTRY is not set in .env, cannot --push." >&2
+    exit 1
+  fi
   echo "[2/3] Pushing images to registry ${REGISTRY}..."
   docker push "${REGISTRY}/agentic_rag-web:${TAG}"
   docker push "${REGISTRY}/agentic_rag-worker:${TAG}"

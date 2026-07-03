@@ -7,14 +7,20 @@ set -euo pipefail
 #
 # Usage: ./scripts/deploy-remote-docker.sh
 
-REGISTRY="192.168.178.80:5000"
-REMOTE_HOST="192.168.178.80"
-REMOTE_USER="rolf"
-
 # ── Pfade ─────────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$REPO_ROOT/.env"
+
+# Read deploy target from .env (DEPLOY_REGISTRY / DEPLOY_REMOTE_HOST / DEPLOY_REMOTE_USER)
+REGISTRY=$(grep -E '^DEPLOY_REGISTRY=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d '"' || true)
+REMOTE_HOST=$(grep -E '^DEPLOY_REMOTE_HOST=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d '"' || true)
+REMOTE_USER=$(grep -E '^DEPLOY_REMOTE_USER=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d '"' || true)
+
+if [[ -z "${REMOTE_HOST}" || -z "${REMOTE_USER}" ]]; then
+  echo "✗ DEPLOY_REMOTE_HOST / DEPLOY_REMOTE_USER must be set in .env." >&2
+  exit 1
+fi
 
 # Build versioned tag for logging: v<version>-<git-sha>
 VERSION=$(python -c "import tomllib; print(tomllib.load(open('$REPO_ROOT/pyproject.toml','rb'))['project']['version'])")
