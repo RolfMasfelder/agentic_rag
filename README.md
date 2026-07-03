@@ -1,123 +1,123 @@
 # Hybrid Agentic RAG System
 
-Lokales KI-gestütztes Analyse- und Retrieval-System für strukturierte und unstrukturierte Dokumente.
+Local AI-powered analysis and retrieval system for structured and unstructured documents.
 
-Das System ist **kein** einfacher "Chat mit PDFs", sondern ein erweiterbares Wissens- und Analysesystem, das semantische Suche, Dokumentbeziehungen und iteratives agentisches Retrieval kombiniert – vollständig On-Prem, ohne Cloud-Abhängigkeiten.
+This is **not** a simple "chat with PDFs" tool, but an extensible knowledge and analysis system combining semantic search, document relationships, and iterative agentic retrieval — fully on-prem, no cloud dependencies.
 
-> Die vollständige Projektbeschreibung, Architekturprinzipien und Designentscheidungen sind in [docs/Zusammenfassung.txt](docs/Zusammenfassung.txt) dokumentiert.
+> The full project description, architecture principles, and design decisions are documented in [docs/Zusammenfassung.txt](docs/Zusammenfassung.txt).
 
 ---
 
-## Technologiestack
+## Tech Stack
 
-| Komponente | Technologie |
+| Component | Technology |
 |---|---|
 | Backend | Python 3.13, Django 5.2, Django REST Framework |
-| Datenbank | PostgreSQL 17 + pgvector |
+| Database | PostgreSQL 17 + pgvector |
 | Task Queue | Celery + Redis |
-| LLM-Laufzeit | Ollama (lokal) |
-| Containerisierung | Docker Compose |
+| LLM runtime | Ollama (local) |
+| Containerization | Docker Compose |
 
 ---
 
-## Projektstruktur
+## Project Structure
 
 ```txt
 agentic_rag/
 │
 ├── docker/
-│   ├── Dockerfile                         # Python 3.13-slim, läuft als UID 1234:1234
+│   ├── Dockerfile                         # Python 3.13-slim, runs as UID 1234:1234
 │   └── docker-compose.yml                 # db, redis, web, worker
 ├── docs/
-│   └── Zusammenfassung.txt                # Projektbeschreibung und Architektur
-├── scripts/                               # Hilfsskripte (z. B. download_testdata.py)
-├── data/                                  # Testdaten, nicht versioniert
+│   └── Zusammenfassung.txt                # Project description and architecture
+├── scripts/                               # Helper scripts (e.g. download_testdata.py)
+├── data/                                  # Test data, not versioned
 ├── requirements.txt
 ├── requirements-dev.txt
-├── pyproject.toml                         # Ruff- und pytest-Konfiguration
-├── .env.example                           # Vorlage für .env
+├── pyproject.toml                         # Ruff and pytest configuration
+├── .env.example                           # Template for .env
 │
-└── django_root/                           # Gesamter Django-Code (PYTHONPATH-Wurzel)
+└── django_root/                           # All Django code (PYTHONPATH root)
     ├── manage.py
     │
-    ├── config/                            # Django-Projektkonfiguration
-    │   ├── celery.py                      # Celery-App-Initialisierung
-    │   ├── urls.py                        # Root-URL-Konfiguration
+    ├── config/                            # Django project configuration
+    │   ├── celery.py                      # Celery app initialization
+    │   ├── urls.py                        # Root URL configuration
     │   ├── wsgi.py
     │   ├── asgi.py
     │   └── settings/
-    │       ├── base.py                    # Gemeinsame Einstellungen
-    │       ├── dev.py                     # Entwicklungsumgebung
-    │       └── prod.py                    # Produktionsumgebung
+    │       ├── base.py                    # Shared settings
+    │       ├── dev.py                     # Development environment
+    │       └── prod.py                    # Production environment
     │
-    ├── apps/                              # Django-Applikationen
-    │   ├── users/                         # Benutzerverwaltung
-    │   │   ├── models.py                  # Erweiterter User (Rollen: admin/analyst/viewer)
+    ├── apps/                              # Django applications
+    │   ├── users/                         # User management
+    │   │   ├── models.py                  # Extended User (roles: admin/analyst/viewer)
     │   │   └── admin.py
-    │   ├── documents/                     # Kernfachlogik
+    │   ├── documents/                     # Core domain logic
     │   │   ├── models.py                  # Document, Chunk, DocumentRelation, AnalysisResult
-    │   │   ├── serializers.py             # DRF-Serializer
-    │   │   ├── views.py                   # ViewSet inkl. /process- und /relations-Endpoints
+    │   │   ├── serializers.py             # DRF serializers
+    │   │   ├── views.py                   # ViewSet incl. /process and /relations endpoints
     │   │   ├── urls.py
     │   │   ├── admin.py
     │   │   └── migrations/
     │   │       └── 0001_enable_pgvector.py  # CREATE EXTENSION vector
-    │   └── audit/                         # Audit-Logging
+    │   └── audit/                         # Audit logging
     │       ├── models.py                  # AuditLog
-    │       └── middleware.py              # Schreibt alle POST/PUT/PATCH/DELETE-Requests
+    │       └── middleware.py              # Logs all POST/PUT/PATCH/DELETE requests
     │
-    ├── ingestion/                         # Dokumentverarbeitungs-Pipeline
+    ├── ingestion/                         # Document processing pipeline
     │   ├── parsers/
-    │   │   ├── base.py                    # Abstrakte Basisklasse + ParsedDocument/Chunk
-    │   │   ├── pdf.py                     # PyMuPDF-Parser
-    │   │   └── markdown.py                # Abschnittsbasierter Markdown-Parser
+    │   │   ├── base.py                    # Abstract base class + ParsedDocument/Chunk
+    │   │   ├── pdf.py                     # PyMuPDF parser
+    │   │   └── markdown.py                # Section-based Markdown parser
     │   ├── chunkers/
-    │   │   ├── base.py                    # Abstrakte Basisklasse
-    │   │   └── paragraph.py               # ParagraphChunker mit konfigurierbarem Overlap
-    │   └── tasks.py                       # Celery-Tasks: parse → chunk → embed
+    │   │   ├── base.py                    # Abstract base class
+    │   │   └── paragraph.py               # ParagraphChunker with configurable overlap
+    │   └── tasks.py                       # Celery tasks: parse → chunk → embed
     │
-    ├── retrieval/                         # Hybrid-Retrieval-Engine
+    ├── retrieval/                         # Hybrid retrieval engine
     │   ├── vector_search.py               # pgvector CosineDistance
-    │   ├── fulltext_search.py             # PostgreSQL Full-Text Search (Deutsch)
-    │   ├── metadata_filter.py             # JSON-Metadaten-Filter
-    │   └── hybrid.py                      # Gewichtete Score-Fusion (Vektor + Volltext)
+    │   ├── fulltext_search.py             # PostgreSQL full-text search (German)
+    │   ├── metadata_filter.py             # JSON metadata filter
+    │   └── hybrid.py                      # Weighted score fusion (vector + full-text)
     │
-    ├── agents/                            # Agentische Orchestrierung
-    │   ├── orchestrator.py                # Tool-Calling-Loop (TOOL: / ANSWER:-Protokoll)
+    ├── agents/                            # Agentic orchestration
+    │   ├── orchestrator.py                # Tool-calling loop (TOOL: / ANSWER: protocol)
     │   └── tools/
     │       ├── search.py                  # search_documents, search_similar_chunks, search_by_metadata
     │       └── documents.py               # load_document, find_related_documents, summarize_document
     │
     └── llm/
-        └── client.py                      # Ollama-Client: get_embedding(), chat()
+        └── client.py                      # Ollama client: get_embedding(), chat()
 ```
 
 ---
 
-## Inbetriebnahme
+## Getting Started
 
-### 1. Umgebung vorbereiten
+### 1. Prepare the environment
 
 ```bash
 cp .env.example .env
-# .env anpassen: DB_PASSWORD und DJANGO_SECRET_KEY setzen
+# Edit .env: set DB_PASSWORD and DJANGO_SECRET_KEY
 ```
 
-### 2. Container bauen und starten
+### 2. Build and start containers
 
 ```bash
 ./docker/build-docker.sh
 ```
 
-Das Skript führt alle Schritte automatisch in der richtigen Reihenfolge aus:
-Container bauen → DB/Redis starten → Migrationen → Demo-Daten laden → alle Services starten.
+The script runs all steps automatically in the right order:
+build containers → start DB/Redis → migrations → load demo data → start all services.
 
 ```bash
-./docker/build-docker.sh --fresh     # ohne Build-Cache (nach Dependency-Änderungen)
-./docker/build-docker.sh --no-seed   # Demo-Daten überspringen
+./docker/build-docker.sh --fresh     # without build cache (after dependency changes)
+./docker/build-docker.sh --no-seed   # skip demo data
 ```
 
-**Manuelle Schritte (ohne Skript):**
+**Manual steps (without the script):**
 
 ```bash
 docker compose -f docker/docker-compose.yml --env-file .env build
@@ -127,36 +127,36 @@ docker compose -f docker/docker-compose.yml --env-file .env run --rm web python 
 docker compose -f docker/docker-compose.yml --env-file .env up -d
 ```
 
-Bei laufendem System ist die Oberfläche via `http://localhost:8001/ui/` erreichbar. API-Endpunkte unter `http://localhost:8001/api/`.
+Once running, the UI is available at `http://localhost:8001/ui/`. API endpoints under `http://localhost:8001/api/`.
 
-Das `seed_data`-Command ist **idempotent** – es kann nach jedem Container-Neubau erneut ausgeführt werden, ohne Duplikate zu erzeugen.
+The `seed_data` command is **idempotent** — it can be re-run after every container rebuild without creating duplicates.
 
-#### Demo-Benutzer
+#### Demo Users
 
-| Benutzername | Passwort    | Rolle    | Rechte                          |
-|--------------|-------------|----------|---------------------------------|
-| `admin`      | `admin123`  | admin    | alles + Django-Admin (`/admin/`)|
-| `analyst`    | `analyst123`| analyst  | Dokumente hochladen & löschen   |
-| `viewer`     | `viewer123` | viewer   | nur lesen & suchen              |
+| Username  | Password    | Role    | Permissions                     |
+|-----------|-------------|---------|----------------------------------|
+| `admin`   | `admin123`  | admin   | everything + Django admin (`/admin/`) |
+| `analyst` | `analyst123`| analyst | upload & delete documents        |
+| `viewer`  | `viewer123` | viewer  | read & search only               |
 
-> **Hinweis:** Diese Passwörter sind ausschließlich für lokale Entwicklung und Tests gedacht.  Niemals in Produktionsumgebungen verwenden.
+> **Note:** These passwords are for local development and testing only. Never use them in production.
 
-### 3. System stoppen
+### 3. Stop the system
 
 ```bash
 docker compose -f docker/docker-compose.yml --env-file .env down
 ```
 
-> **Hinweis:** Ollama läuft auf einem separaten Rechner. `OLLAMA_BASE_URL` in `.env` entsprechend setzen.
+> **Note:** Ollama runs on a separate machine. Set `OLLAMA_BASE_URL` in `.env` accordingly.
 
 ---
 
-## Architekturprinzipien
+## Architecture Principles
 
-- **Retrieval wichtiger als Modellgröße** – das LLM orchestriert, die Datenbank liefert Wissen
-- **Kein direkter DB-Zugriff für das LLM** – ausschließlich über definierte Tools/MCP
-- **Semantisches Chunking** statt tokenbasiertem Splitting
-- **Hybrid Retrieval**: Vektorsimilarität + PostgreSQL-Volltext + Metadatenfilter + relationale Traversal
-- **Vollständig On-Prem** – keine externen API-Aufrufe
+- **Retrieval matters more than model size** — the LLM orchestrates, the database provides knowledge
+- **No direct DB access for the LLM** — only through defined tools/MCP
+- **Semantic chunking** instead of token-based splitting
+- **Hybrid retrieval**: vector similarity + PostgreSQL full-text + metadata filtering + relational traversal
+- **Fully on-prem** — no external API calls
 
-Siehe [docs/Zusammenfassung.txt](docs/Zusammenfassung.txt) für die vollständige Spezifikation.
+See [docs/Zusammenfassung.txt](docs/Zusammenfassung.txt) for the full specification.
