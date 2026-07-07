@@ -13,4 +13,4 @@ pytesseract>=0.3.13
 Pillow>=12.3.0
 httpx>=0.28.1
 python-magic>=0.4.27
-drf-spectacular>=0.29.0
+drf-spectacular>=0.30.0
