@@ -4,8 +4,13 @@
 
 | Remote   | Zweck                                      |
 |----------|--------------------------------------------|
-| `origin` | Bei jedem vom Nutzer ausgelösten Push-Befehl ohne explizite Remote-Angabe immer nach `origin` pushen. Niemals automatisch ohne expliziten Nutzerbefehl pushen. Bei Push-Fehler keinerlei Retry ausführen, keinen lokalen Commit zurücknehmen, und genau eine Fehlermeldung mit dem Git-Output an den Nutzer geben. |
-| `github` | Nur pushen, wenn der Nutzer das Wort "github" oder "GitHub" explizit im Push-Befehl nennt. Dann sowohl zu `origin` als auch zu `github` pushen (`origin` zuerst). |
+| `origin` | lokaler Mirror. |
+| `github` | auf Github werden CI/CD-Pipelines ausgelöst. Speziell Dependabot und CodeQL laufen auf Github. |
+
+Pushen immer zu beiden remotes, sowohl zu `origin` als auch zu `github` pushen (`origin` zuerst).
+
+Der Workflow im Projekt ist: Feature-Branch erstellen / branch dev nutzen → lokal entwickeln → `ruff check .` und `pytest` ausführen → Commit → Push zu beiden Remotes → PR auf Github → CI/CD-Pipeline auf Github läuft → Merge in `main`
+kommt später: Deployment auf Testsystem (Staging) → manuelles Testen → Merge in `prod` → Deployment auf Produktionssystem.
 
 Commit-Format: `<prefix>: kurze Beschreibung auf Englisch` (eine Zeile, maximal 72 Zeichen). Erlaubte Prefixe: `feat` (neue Funktion), `fix` (Bugfix), `refactor` (Umstrukturierung ohne Verhaltensänderung), `docs`, `test`, `chore`. Bei Unsicherheit `chore` verwenden.
 
@@ -28,7 +33,7 @@ Vollständige Spezifikation: `docs/Zusammenfassung.txt`.
 - Einstellungen: `django_root/config/settings/base.py` (gemeinsam), `dev.py`, `prod.py`
 - `.env` wird nur geladen wenn vorhanden – CI setzt Env-Variablen direkt; bei fehlender `.env` außerhalb von CI: Nutzer warnen und auf `.env.example` als Vorlage verweisen
 - Linting: `ruff` (Konfiguration in `pyproject.toml`); vor jedem Commit `ruff check .` und `pytest` ausführen. Bei nicht-null Exit-Code eines der beiden Befehle nicht committen und Nutzer informieren. Bei auto-fixbaren Ruff-Issues niemals automatisch `--fix` ausführen; stattdessen Nutzer informieren und auf Bestätigung warten.
-- Tests: `pytest` + `pytest-django` (`requirements-dev.txt`)
+- Tests: `pytest` + `pytest-django` (`requirements-dev.txt`). DB-unabhängige Tests bevorzugt lokal im Projekt-venv ausführen. Für DB-abhängige Tests (`test_api.py`, `test_e2e.py`) niemals Dev-Dependencies in den persistenten `web`/`worker`-Service installieren (z. B. via `docker compose exec ... pip install`) – das Prod-Image bleibt sonst dauerhaft mit Dev-Tools verunreinigt. Stattdessen einen einmaligen, danach automatisch verworfenen Container verwenden: `docker compose -f docker/docker-compose.yml --env-file .env run --rm web bash -c "pip install -q -r requirements-dev.txt && python -m pytest django_root/tests/test_api.py -v"`
 - Migrations: Wenn die Datenbank leer ist oder die `vector`-Extension noch nicht existiert, zuerst `migrate documents 0001` ausführen (erstellt die `vector`-Extension); danach für neue Modelländerungen `makemigrations` und `migrate`
 - Dokumentation immer in `docs/` ablegen
 - Skripte immer in `scripts/` ablegen – Ausnahme: Installations- und Docker-Hilfsskripte gehören in `docker/`
