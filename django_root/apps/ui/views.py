@@ -21,7 +21,7 @@ def analyst_required(view_func):
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect(f"{settings.LOGIN_URL}?next={request.path}")
+            return redirect(settings.LOGIN_URL)
         if request.user.role not in ("admin", "analyst"):
             return render(request, "ui/403.html", status=403)
         return view_func(request, *args, **kwargs)

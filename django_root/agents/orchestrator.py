@@ -351,7 +351,9 @@ def _execute_tool_call(response: str) -> Any:
     except Exception as exc:
         logger.exception("Tool execution failed.")
         _raw_logger.error("TOOL ERROR [%s]: %s", _parsed_name, exc)
-        return {"error": str(exc)}
+        # Do not leak internal exception details (paths, SQL, stack info) into the
+        # conversation – they would eventually flow into the client-facing answer.
+        return {"error": f"Tool {_parsed_name!r} execution failed."}
 
 
 def run_agent_stream(user_query: str, max_iterations: int = 5) -> Iterator[dict[str, Any]]:
